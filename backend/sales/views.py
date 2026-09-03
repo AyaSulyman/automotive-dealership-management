@@ -5,7 +5,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.permissions import IsAdmin, IsAdminOrAgent
+from common.permissions import IsAdmin, IsAdminAgentOrAccountant, IsAdminOrAgent
 from common.pdf import render_simple_document
 
 from .integrations import mark_vehicle_sold
@@ -126,6 +126,13 @@ class SalesInvoiceListCreateView(generics.ListCreateAPIView):
     def get_serializer_class(self):
         return SalesInvoiceCreateSerializer if self.request.method == "POST" else SalesInvoiceSerializer
 
+    def get_permissions(self):
+        # Read access (list) is also open to accountants for reconciliation;
+        # only admin/agent can create deals.
+        if self.request.method == "GET":
+            return [IsAdminAgentOrAccountant()]
+        return [IsAdminOrAgent()]
+
     def perform_create(self, serializer):
         serializer.save()
 
@@ -144,7 +151,13 @@ class SalesInvoiceDetailView(generics.RetrieveUpdateAPIView):
     PATCH /sales-invoices/{id}   Update a DRAFT deal only.
     """
     queryset = SalesInvoice.objects.all()
-    permission_classes = [IsAdminOrAgent]
+
+    def get_permissions(self):
+        # Read access is also open to accountants for reconciliation;
+        # only admin/agent can edit a DRAFT deal.
+        if self.request.method == "GET":
+            return [IsAdminAgentOrAccountant()]
+        return [IsAdminOrAgent()]
 
     def get_serializer_class(self):
         return SalesInvoiceUpdateSerializer if self.request.method == "PATCH" else SalesInvoiceSerializer

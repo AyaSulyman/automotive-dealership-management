@@ -168,6 +168,12 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
     'EXCEPTION_HANDLER': 'common.exceptions.standard_exception_handler',
+    # Disabled: DRF's built-in `?format=` override collides with the API
+    # spec's own use of `?format=csv` on /reports/payments/export (DRF
+    # would try to content-negotiate a "csv" renderer and 404/406 instead
+    # of reaching the view). No other endpoint in the spec relies on DRF's
+    # format-suffix switching, so this is safe to turn off globally.
+    'URL_FORMAT_OVERRIDE': None,
 }
 
 from datetime import timedelta  # noqa: E402
