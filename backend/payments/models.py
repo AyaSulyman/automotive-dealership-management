@@ -22,7 +22,10 @@ class Payment(models.Model):
     ]
 
     invoice = models.ForeignKey("sales.SalesInvoice", on_delete=models.PROTECT, related_name="payments")
-    financing_account_id = models.IntegerField(null=True, blank=True, db_index=True)
+    financing_account = models.ForeignKey(
+        "payments.FinancingAccount", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="payments",
+    )
 
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     method = models.CharField(max_length=20, choices=METHOD_CHOICES)
@@ -77,3 +80,35 @@ class PaymentSchedule(models.Model):
     @property
     def remaining(self):
         return self.amount_due - self.amount_paid
+
+
+class FinancingAccount(models.Model):
+    """
+    Payments & Financing -> Financing Agreements tab. Genuine 1:1 with
+    SalesInvoice -- a deal has at most one financing account -- enforced
+    with OneToOneField (UNIQUE constraint under the hood). No amortization
+    engine yet, just the basic capture fields from the API spec.
+    """
+
+    STATUS_CHOICES = [
+        ("ACTIVE", "Active"),
+        ("PAID_OFF", "Paid Off"),
+        ("DEFAULT", "Default"),
+    ]
+
+    invoice = models.OneToOneField("sales.SalesInvoice", on_delete=models.CASCADE, related_name="financing_account")
+    lender_name = models.CharField(max_length=120, blank=True)
+    down_payment = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    term_months = models.PositiveIntegerField()
+    interest_rate = models.DecimalField(max_digits=5, decimal_places=4, help_text="e.g. 0.0599 for 5.99%")
+    monthly_payment = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Financing for invoice {self.invoice_id} ({self.lender_name})"

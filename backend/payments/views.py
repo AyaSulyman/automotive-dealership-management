@@ -10,9 +10,10 @@ from rest_framework.views import APIView
 from common.permissions import IsAdminAgentOrAccountant, IsAdminOrAccountant
 from common.pdf import render_simple_document
 
-from .models import Payment, PaymentSchedule
+from .models import Payment, PaymentSchedule, FinancingAccount
 from .schedule_sync import apply_payment_to_schedule
 from .serializers import (
+    FinancingAccountSerializer, FinancingAccountStatusUpdateSerializer,
     GenerateScheduleSerializer, PaymentCreateSerializer, PaymentScheduleSerializer, PaymentSerializer,
 )
 
@@ -207,3 +208,31 @@ class GenerateScheduleView(APIView):
 
         schedule = PaymentSchedule.objects.filter(invoice=invoice).order_by("installment_number")
         return Response(PaymentScheduleSerializer(schedule, many=True).data, status=status.HTTP_201_CREATED)
+
+
+class FinancingAccountListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /financing-accounts?invoice_id=   list financing agreements.
+    POST /financing-accounts               basic capture. No amortization
+                                            engine yet.
+    """
+    queryset = FinancingAccount.objects.select_related("invoice").all()
+    serializer_class = FinancingAccountSerializer
+    filterset_fields = ["invoice"]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAdminOrAccountant()]
+        return [IsAdminAgentOrAccountant()]
+
+
+class FinancingAccountDetailView(generics.RetrieveUpdateAPIView):
+    """
+    GET   /financing-accounts/{id}   detail.
+    PATCH /financing-accounts/{id}   update status (ACTIVE/PAID_OFF/DEFAULT).
+    """
+    queryset = FinancingAccount.objects.select_related("invoice").all()
+    permission_classes = [IsAdminOrAccountant]
+
+    def get_serializer_class(self):
+        return FinancingAccountStatusUpdateSerializer if self.request.method == "PATCH" else FinancingAccountSerializer
