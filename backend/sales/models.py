@@ -2,6 +2,92 @@ from django.conf import settings
 from django.db import models
 
 
+class SalesInvoice(models.Model):
+    """
+    The deal / invoice lifecycle (Sales & Trade-Ins "Create New Deal" flow,
+    Invoice screen). customer_id / vehicle_id / branch_id are loose
+    references to Person 1's Customer / Vehicle / Branch models (API spec
+    sections 5, 6, 7) — see common/permissions.py for why cross-app FKs to
+    not-yet-built apps are avoided.
+    """
+
+    STATUS_CHOICES = [
+        ("DRAFT", "Draft"),
+        ("OPEN", "Open"),
+        ("PAID", "Paid"),
+        ("CANCELLED", "Cancelled"),
+    ]
+
+    invoice_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
+
+    customer_id = models.IntegerField(db_index=True)
+    vehicle_id = models.IntegerField(db_index=True)
+    branch_id = models.IntegerField(null=True, blank=True, db_index=True)
+    salesperson = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sales_invoices",
+    )
+
+    sale_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    trade_in_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    balance_due = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.invoice_number or f"DRAFT-{self.pk}"
+
+    def recompute_totals(self, tax_rate=None):
+        """Subtotal -> tax -> total -> balance_due, in that order.
+        Called only while a deal is still DRAFT (selling_price/discount/tax/
+        trade-in are all still editable then), so balance_due is simply
+        reset to total_amount every time. Once a deal is finalized (OPEN),
+        the payments app decrements balance_due directly as payments land
+        instead of calling this method."""
+        self.subtotal = self.selling_price - self.discount_amount
+        if tax_rate is not None:
+            self.tax_amount = (self.subtotal * tax_rate).quantize(self.selling_price)
+        self.total_amount = self.subtotal + self.tax_amount - self.trade_in_credit
+        self.balance_due = self.total_amount
+
+
+class Discount(models.Model):
+    """Line-item discount on a SalesInvoice. `approved_by` exists for a
+    future manager-approval workflow — not enforced in this MVP (see the
+    API spec's note on §9 discounts)."""
+
+    DISCOUNT_TYPE_CHOICES = [
+        ("FIXED", "Fixed Amount"),
+        ("PERCENTAGE", "Percentage"),
+    ]
+
+    invoice = models.ForeignKey(SalesInvoice, on_delete=models.CASCADE, related_name="discounts")
+    discount_type = models.CharField(max_length=20, choices=DISCOUNT_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    reason = models.CharField(max_length=255, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="approved_discounts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Discount({self.discount_type}, {self.amount}) on invoice {self.invoice_id}"
+
+
 class TradeIn(models.Model):
     """
     Trade-in appraisal captured during the "Create New Deal" flow
@@ -36,12 +122,14 @@ class TradeIn(models.Model):
         on_delete=models.SET_NULL, related_name="trade_in_appraisals",
     )
 
-    # Loose reference for now (plain IntegerField): SalesInvoice doesn't
-    # exist yet in this branch. Upgraded to a real ForeignKey in the
-    # aya/sales-invoices branch once that model lands (1:M -- Sales
-    # Invoice -> Trade-In: one invoice may have several trade-ins credited
-    # to it).
-    credited_invoice_id = models.IntegerField(null=True, blank=True, db_index=True)
+    # Real FK now that SalesInvoice exists in this app (was a loose
+    # IntegerField in the aya/trade-ins branch). Nullable, no uniqueness
+    # constraint: one invoice may have several trade-ins credited to it
+    # (1:M -- Sales Invoice -> Trade-In).
+    credited_invoice = models.ForeignKey(
+        "sales.SalesInvoice", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="trade_ins",
+    )
     credited_reference = models.CharField(max_length=30, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
