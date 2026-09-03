@@ -14,4 +14,8 @@ urlpatterns = [
 
     path("financing-accounts", views.FinancingAccountListCreateView.as_view(), name="financing-account-list-create"),
     path("financing-accounts/<int:pk>", views.FinancingAccountDetailView.as_view(), name="financing-account-detail"),
+
+    path("statements/generate", views.StatementGenerateView.as_view(), name="statement-generate"),
+    path("statements", views.StatementListView.as_view(), name="statement-list"),
+    path("statements/<int:pk>", views.StatementDetailView.as_view(), name="statement-detail"),
 ]

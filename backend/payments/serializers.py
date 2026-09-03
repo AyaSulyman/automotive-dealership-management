@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Payment, PaymentSchedule, FinancingAccount
+from .models import Payment, PaymentSchedule, FinancingAccount, Statement
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -71,3 +71,21 @@ class FinancingAccountStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinancingAccount
         fields = ["status"]
+
+
+class StatementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Statement
+        fields = ["id", "customer_id", "period_start", "period_end", "summary", "generated_at"]
+        read_only_fields = ["summary", "generated_at"]
+
+
+class StatementGenerateSerializer(serializers.Serializer):
+    customer_id = serializers.IntegerField()
+    period_start = serializers.DateField()
+    period_end = serializers.DateField()
+
+    def validate(self, attrs):
+        if attrs["period_end"] < attrs["period_start"]:
+            raise serializers.ValidationError({"period_end": "Must be on or after period_start."})
+        return attrs
