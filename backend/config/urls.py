@@ -15,8 +15,15 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Person 2 (Aya) — sales/deal lifecycle, payments & financing, reporting.
+    # Person 1's /api/v1/auth, /users, /roles, /vendors, /purchase-orders,
+    # /vehicles, /documents, /customers land under the same prefix.
+    path('api/v1/', include('sales.urls')),
+    path('api/v1/', include('payments.urls')),
+    path('api/v1/', include('reports.urls')),
 ]
