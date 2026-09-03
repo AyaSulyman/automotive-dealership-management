@@ -10,9 +10,11 @@ from rest_framework.views import APIView
 from common.permissions import IsAdminAgentOrAccountant, IsAdminOrAccountant
 from common.pdf import render_simple_document
 
-from .models import Payment
+from .models import Payment, PaymentSchedule
 from .schedule_sync import apply_payment_to_schedule
-from .serializers import PaymentCreateSerializer, PaymentSerializer
+from .serializers import (
+    GenerateScheduleSerializer, PaymentCreateSerializer, PaymentScheduleSerializer, PaymentSerializer,
+)
 
 
 def _generate_receipt_number():
@@ -127,3 +129,81 @@ class PaymentsExportView(APIView):
                 p.amount, p.method, p.paid_at, p.recorded_by.get_username(),
             ])
         return response
+
+
+class PaymentScheduleListView(generics.ListAPIView):
+    """GET /payment-schedules?invoice_id= — list installments for an invoice."""
+    queryset = PaymentSchedule.objects.select_related("invoice").all()
+    serializer_class = PaymentScheduleSerializer
+    permission_classes = [IsAdminOrAccountant]
+    filterset_fields = ["invoice"]
+
+
+class PaymentScheduleDetailUpdateView(generics.UpdateAPIView):
+    """PATCH /payment-schedules/{id} — manual adjustment to a due date/amount."""
+    queryset = PaymentSchedule.objects.all()
+    serializer_class = PaymentScheduleSerializer
+    permission_classes = [IsAdminOrAccountant]
+
+
+_FREQUENCY_DAYS = {"WEEKLY": 7, "BIWEEKLY": 14, "MONTHLY": 30}
+
+
+class GenerateScheduleView(APIView):
+    """
+    POST /sales-invoices/{id}/generate-schedule
+    Body: {down_payment, installment_count, frequency}
+    Creates PaymentSchedule rows for the remaining balance after the down
+    payment, spread evenly across `installment_count` installments.
+    """
+    permission_classes = [IsAdminAgentOrAccountant]
+
+    def post(self, request, pk):
+        from sales.models import SalesInvoice
+        import datetime
+
+        invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
+        if invoice.status != "OPEN":
+            return Response(
+                {"error": {"code": "conflict", "message": "A payment schedule can only be generated for an OPEN invoice.", "fields": {}}},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if PaymentSchedule.objects.filter(invoice=invoice).exists():
+            return Response(
+                {"error": {"code": "conflict", "message": "A payment schedule already exists for this invoice.", "fields": {}}},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = GenerateScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        financed_amount = invoice.balance_due - data["down_payment"]
+        if financed_amount <= 0:
+            return Response(
+                {"error": {"code": "bad_request", "message": "Down payment must be less than the outstanding balance.", "fields": {}}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        count = data["installment_count"]
+        step_days = _FREQUENCY_DAYS[data["frequency"]]
+        per_installment = (financed_amount / count).quantize(invoice.balance_due)
+
+        rows = []
+        running_total = 0
+        today = datetime.date.today()
+        for i in range(1, count + 1):
+            amount = per_installment
+            if i == count:
+                # last installment absorbs any rounding remainder
+                amount = financed_amount - running_total
+            running_total += amount
+            rows.append(PaymentSchedule(
+                invoice=invoice, installment_number=i,
+                due_date=today + datetime.timedelta(days=step_days * i),
+                amount_due=amount,
+            ))
+        PaymentSchedule.objects.bulk_create(rows)
+
+        schedule = PaymentSchedule.objects.filter(invoice=invoice).order_by("installment_number")
+        return Response(PaymentScheduleSerializer(schedule, many=True).data, status=status.HTTP_201_CREATED)

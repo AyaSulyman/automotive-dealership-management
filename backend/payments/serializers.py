@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Payment
+from .models import Payment, PaymentSchedule
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -35,3 +35,18 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
                 {"amount": f"Amount exceeds the outstanding balance ({invoice.balance_due})."}
             )
         return attrs
+
+
+class PaymentScheduleSerializer(serializers.ModelSerializer):
+    remaining = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = PaymentSchedule
+        fields = ["id", "invoice", "installment_number", "due_date", "amount_due", "amount_paid", "status", "remaining"]
+        read_only_fields = ["invoice", "installment_number", "amount_paid"]
+
+
+class GenerateScheduleSerializer(serializers.Serializer):
+    down_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, default=0, min_value=0)
+    installment_count = serializers.IntegerField(min_value=1, max_value=120)
+    frequency = serializers.ChoiceField(choices=["WEEKLY", "BIWEEKLY", "MONTHLY"], default="MONTHLY")
