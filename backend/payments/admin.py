@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Payment, PaymentSchedule, FinancingAccount
+from .models import Payment, PaymentSchedule, FinancingAccount, Statement
 
 
 @admin.register(Payment)
@@ -20,3 +20,8 @@ class PaymentScheduleAdmin(admin.ModelAdmin):
 class FinancingAccountAdmin(admin.ModelAdmin):
     list_display = ["id", "invoice", "lender_name", "term_months", "interest_rate", "status"]
     list_filter = ["status"]
+
+
+@admin.register(Statement)
+class StatementAdmin(admin.ModelAdmin):
+    list_display = ["id", "customer_id", "period_start", "period_end", "generated_at"]

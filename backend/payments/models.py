@@ -112,3 +112,26 @@ class FinancingAccount(models.Model):
 
     def __str__(self):
         return f"Financing for invoice {self.invoice_id} ({self.lender_name})"
+
+
+class Statement(models.Model):
+    """
+    Customer statement (Customers screen -> "Generate Statement"). customer_id
+    is a loose reference to Person 1's future Customer model (same pattern
+    as elsewhere). `summary` is a computed JSON snapshot taken at generation
+    time (invoices/payments within the period + resulting balance) so a
+    previously-issued statement never silently changes if later payments
+    land -- it's a point-in-time record, not a live query.
+    """
+
+    customer_id = models.IntegerField(db_index=True)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    summary = models.JSONField(default=dict, blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-generated_at"]
+
+    def __str__(self):
+        return f"Statement for customer {self.customer_id} ({self.period_start} to {self.period_end})"

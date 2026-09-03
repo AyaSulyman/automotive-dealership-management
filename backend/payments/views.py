@@ -1,5 +1,6 @@
 import csv
 
+from django.db import models
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -10,11 +11,12 @@ from rest_framework.views import APIView
 from common.permissions import IsAdminAgentOrAccountant, IsAdminOrAccountant
 from common.pdf import render_simple_document
 
-from .models import Payment, PaymentSchedule, FinancingAccount
+from .models import Payment, PaymentSchedule, FinancingAccount, Statement
 from .schedule_sync import apply_payment_to_schedule
 from .serializers import (
     FinancingAccountSerializer, FinancingAccountStatusUpdateSerializer,
     GenerateScheduleSerializer, PaymentCreateSerializer, PaymentScheduleSerializer, PaymentSerializer,
+    StatementGenerateSerializer, StatementSerializer,
 )
 
 
@@ -236,3 +238,104 @@ class FinancingAccountDetailView(generics.RetrieveUpdateAPIView):
 
     def get_serializer_class(self):
         return FinancingAccountStatusUpdateSerializer if self.request.method == "PATCH" else FinancingAccountSerializer
+
+
+def _build_statement_summary(customer_id, period_start, period_end):
+    from sales.models import SalesInvoice
+
+    invoices = SalesInvoice.objects.filter(
+        customer_id=customer_id, sale_date__gte=period_start, sale_date__lte=period_end,
+    ).exclude(status="CANCELLED")
+    payments = Payment.objects.filter(
+        invoice__customer_id=customer_id, paid_at__date__gte=period_start, paid_at__date__lte=period_end,
+    )
+
+    invoices_total = sum((inv.total_amount for inv in invoices), start=0)
+    payments_total = sum((p.amount for p in payments), start=0)
+    outstanding_balance = SalesInvoice.objects.filter(
+        customer_id=customer_id,
+    ).exclude(status__in=["CANCELLED", "DRAFT"]).aggregate(
+        total=models.Sum("balance_due"),
+    )["total"] or 0
+
+    return {
+        "invoice_count": invoices.count(),
+        "invoices_total": str(invoices_total),
+        "payment_count": payments.count(),
+        "payments_total": str(payments_total),
+        "outstanding_balance": str(outstanding_balance),
+        "invoices": [
+            {"id": i.id, "invoice_number": i.invoice_number, "sale_date": str(i.sale_date), "total_amount": str(i.total_amount)}
+            for i in invoices
+        ],
+        "payments": [
+            {"id": p.id, "receipt_number": p.receipt_number, "paid_at": str(p.paid_at), "amount": str(p.amount)}
+            for p in payments
+        ],
+    }
+
+
+class StatementGenerateView(APIView):
+    """POST /statements/generate — {customer_id, period_start, period_end}
+    creates a statement row with a point-in-time summary snapshot."""
+    permission_classes = [IsAdminOrAccountant]
+
+    def post(self, request):
+        serializer = StatementGenerateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        summary = _build_statement_summary(data["customer_id"], data["period_start"], data["period_end"])
+        statement = Statement.objects.create(
+            customer_id=data["customer_id"], period_start=data["period_start"],
+            period_end=data["period_end"], summary=summary,
+        )
+        return Response(StatementSerializer(statement).data, status=status.HTTP_201_CREATED)
+
+
+class StatementListView(generics.ListAPIView):
+    """GET /statements?customer_id= — list a customer's past statements."""
+    queryset = Statement.objects.all()
+    serializer_class = StatementSerializer
+    permission_classes = [IsAdminOrAccountant]
+    filterset_fields = ["customer_id"]
+
+
+class StatementDetailView(APIView):
+    """
+    GET /statements/{id}       fetch statement metadata + summary (JSON).
+    GET /statements/{id}?pdf=1 fetch the same statement rendered as a PDF.
+    """
+    permission_classes = [IsAdminOrAccountant]
+
+    def get(self, request, pk):
+        statement = generics.get_object_or_404(Statement, pk=pk)
+
+        if request.query_params.get("pdf"):
+            s = statement.summary
+            meta = [
+                ("Customer ID", str(statement.customer_id)),
+                ("Period", f"{statement.period_start} to {statement.period_end}"),
+                ("Generated At", str(statement.generated_at)),
+                ("Outstanding Balance", s.get("outstanding_balance", "0")),
+            ]
+            headers = ["Invoice #", "Sale Date", "Total"]
+            rows = [[i["invoice_number"] or f"DRAFT-{i['id']}", i["sale_date"], i["total_amount"]] for i in s.get("invoices", [])]
+            totals = [
+                ("Invoices Total (this period)", s.get("invoices_total", "0")),
+                ("Payments Total (this period)", s.get("payments_total", "0")),
+            ]
+            pdf_bytes = render_simple_document(
+                title="CUSTOMER STATEMENT",
+                subtitle=f"Customer #{statement.customer_id} — {statement.period_start} to {statement.period_end}",
+                meta_pairs=meta,
+                table_headers=headers,
+                table_rows=rows,
+                totals=totals,
+                footer_note="This statement reflects activity within the stated period only.",
+            )
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'inline; filename="statement-{statement.pk}.pdf"'
+            return response
+
+        return Response(StatementSerializer(statement).data)
