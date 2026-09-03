@@ -40,6 +40,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'django_filters',
+
+    # Local apps — Person 2 (Aya): sales/deal lifecycle, payments & financing, reporting
+    'sales',
+    'payments',
+    'reports',
 ]
 
 MIDDLEWARE = [
@@ -130,3 +140,46 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# -----------------------------------------------------------------------
+# Django REST Framework
+# API conventions (see ADMS_API_Specification.md):
+#   - Base URL: /api/v1
+#   - Auth: Bearer JWT
+#   - Pagination: { "count", "next", "previous", "results": [...] }
+#   - Errors: { "error": { "code", "message", "fields": {...} } }
+# -----------------------------------------------------------------------
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': (
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ),
+    'EXCEPTION_HANDLER': 'common.exceptions.standard_exception_handler',
+}
+
+from datetime import timedelta  # noqa: E402
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+}
+
+# NOTE (integration): role checks (admin / agent / accountant) are implemented
+# via Django's built-in auth Group model as an interim mechanism — see
+# common/permissions.py — so Person 2's endpoints don't depend on Person 1's
+# dedicated Role/Profile model landing first. Swap the permission class's
+# lookup to the real Role model once it's merged; the call sites won't change.
