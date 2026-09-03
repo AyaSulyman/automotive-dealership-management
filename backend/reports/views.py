@@ -4,10 +4,11 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.permissions import IsAdminOrAccountant
 from payments.models import Payment
 from sales.models import SalesInvoice
 
-from .integrations import get_inventory_snapshot
+from .integrations import get_inventory_snapshot, get_inventory_cost_basis_split, get_work_order_costs_mtd, get_vehicle_cost_basis
 from .serializers import RecentInvoiceSerializer, RecentPaymentSerializer
 
 
@@ -72,3 +73,74 @@ class RecentPaymentsView(ListAPIView):
     def list(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_queryset(), many=True)
         return Response(serializer.data)
+
+
+class FinanceOverviewView(APIView):
+    """
+    GET /reports/finance/overview
+    "Overview" tab: Total Sales MTD, Payments Received (MTD), Outstanding
+    Balance, Current Inventory Cost Basis (New/Used split), Work Order
+    Costs MTD. The last two are inventory/reconditioning figures Person 2
+    doesn't own the data for -- null until Person 1's catalog app lands.
+    """
+    permission_classes = [IsAdminOrAccountant]
+
+    def get(self, request):
+        month_start = timezone.now().replace(day=1).date()
+        today = timezone.now().date()
+
+        sales_mtd = SalesInvoice.objects.filter(
+            sale_date__gte=month_start, sale_date__lte=today,
+        ).exclude(status="CANCELLED").aggregate(total=models.Sum("total_amount"))["total"] or 0
+
+        payments_mtd = Payment.objects.filter(
+            paid_at__date__gte=month_start, paid_at__date__lte=today,
+        ).aggregate(total=models.Sum("amount"))["total"] or 0
+
+        outstanding_balance = SalesInvoice.objects.exclude(
+            status__in=["CANCELLED", "DRAFT"],
+        ).aggregate(total=models.Sum("balance_due"))["total"] or 0
+
+        payload = {
+            "total_sales_mtd": str(sales_mtd),
+            "payments_received_mtd": str(payments_mtd),
+            "outstanding_balance": str(outstanding_balance),
+            "work_order_costs_mtd": get_work_order_costs_mtd(),
+        }
+        payload.update(get_inventory_cost_basis_split())
+        return Response(payload)
+
+
+class VehicleFinancialSummaryView(APIView):
+    """
+    GET /reports/vehicle-financial-summary?vehicle_id=
+    Per-vehicle cost basis vs. sale price (ACC-01). cost_basis is null
+    until Person 1's catalog app lands; everything sale-side (price,
+    margin against what we know) is fully computed.
+    """
+    permission_classes = [IsAdminOrAccountant]
+
+    def get(self, request):
+        vehicle_id = request.query_params.get("vehicle_id")
+        if not vehicle_id:
+            return Response(
+                {"error": {"code": "bad_request", "message": "vehicle_id is required.", "fields": {}}},
+                status=400,
+            )
+
+        invoice = SalesInvoice.objects.filter(vehicle_id=vehicle_id).exclude(status="CANCELLED").order_by("-created_at").first()
+        cost_basis = get_vehicle_cost_basis(vehicle_id)
+
+        sale_price = str(invoice.total_amount) if invoice else None
+        gross_profit = None
+        if invoice and cost_basis is not None:
+            gross_profit = str(invoice.total_amount - cost_basis)
+
+        return Response({
+            "vehicle_id": int(vehicle_id),
+            "invoice_id": invoice.id if invoice else None,
+            "invoice_status": invoice.status if invoice else None,
+            "sale_price": sale_price,
+            "cost_basis": str(cost_basis) if cost_basis is not None else None,
+            "gross_profit": gross_profit,
+        })
