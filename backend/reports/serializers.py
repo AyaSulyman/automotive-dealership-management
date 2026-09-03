@@ -3,6 +3,8 @@ from rest_framework import serializers
 from payments.models import Payment
 from sales.models import SalesInvoice
 
+from .models import AuditLog
+
 
 class RecentInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,3 +18,11 @@ class RecentPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ["id", "receipt_number", "invoice", "invoice_number", "amount", "method", "paid_at"]
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.get_username", read_only=True, default=None)
+
+    class Meta:
+        model = AuditLog
+        fields = ["id", "user", "username", "action", "entity_type", "entity_id", "changes", "created_at"]

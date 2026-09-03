@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from common.permissions import IsAdminAgentOrAccountant, IsAdminOrAccountant
 from common.pdf import render_simple_document
+from reports.audit import log_action
 
 from .models import Payment, PaymentSchedule, FinancingAccount, Statement
 from .schedule_sync import apply_payment_to_schedule
@@ -63,6 +64,8 @@ class PaymentListCreateView(generics.ListCreateAPIView):
         invoice.save(update_fields=["balance_due", "status", "updated_at"])
 
         apply_payment_to_schedule(invoice, payment.amount, payment.paid_at)
+
+        log_action(request.user, "CREATE", "Payment", payment.pk, {"invoice_id": invoice.pk, "amount": str(payment.amount)})
 
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
 
@@ -226,6 +229,10 @@ class FinancingAccountListCreateView(generics.ListCreateAPIView):
         if self.request.method == "GET":
             return [IsAdminOrAccountant()]
         return [IsAdminAgentOrAccountant()]
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        log_action(self.request.user, "CREATE", "FinancingAccount", instance.pk, {"invoice_id": instance.invoice_id, "lender_name": instance.lender_name})
 
 
 class FinancingAccountDetailView(generics.RetrieveUpdateAPIView):

@@ -4,12 +4,13 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.permissions import IsAdminOrAccountant
+from common.permissions import IsAdmin, IsAdminOrAccountant
 from payments.models import Payment
 from sales.models import SalesInvoice
 
 from .integrations import get_inventory_snapshot, get_inventory_cost_basis_split, get_work_order_costs_mtd, get_vehicle_cost_basis
-from .serializers import RecentInvoiceSerializer, RecentPaymentSerializer
+from .models import AuditLog
+from .serializers import AuditLogSerializer, RecentInvoiceSerializer, RecentPaymentSerializer
 
 
 class DashboardOverviewView(APIView):
@@ -144,3 +145,28 @@ class VehicleFinancialSummaryView(APIView):
             "cost_basis": str(cost_basis) if cost_basis is not None else None,
             "gross_profit": gross_profit,
         })
+
+
+class AuditLogListView(ListAPIView):
+    """
+    GET /audit-log?entity_type=&entity_id=&user_id=&date_from=&date_to=
+    Not surfaced in any of the 10 UI screens, but required by SEC-03
+    (MVP) -- admin-only troubleshooting endpoint.
+    """
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = AuditLog.objects.all()
+        params = self.request.query_params
+        if params.get("entity_type"):
+            qs = qs.filter(entity_type=params["entity_type"])
+        if params.get("entity_id"):
+            qs = qs.filter(entity_id=params["entity_id"])
+        if params.get("user_id"):
+            qs = qs.filter(user_id=params["user_id"])
+        if params.get("date_from"):
+            qs = qs.filter(created_at__date__gte=params["date_from"])
+        if params.get("date_to"):
+            qs = qs.filter(created_at__date__lte=params["date_to"])
+        return qs
