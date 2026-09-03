@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ detail_title }} | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'css/inventory.css' %}">{% endblock %}
+
+{% block content %}
+<div class="inventory-narrow-page">
+    <a class="inventory-back-link" href="{{ back_url }}">← Back to Inventory</a>
+    <header class="inventory-detail-heading">
+        <div>
+            <p class="inventory-eyebrow">Inventory &amp; Procurement</p>
+            <h1>{{ detail_title }}</h1>
+            <p>{{ detail_description }}</p>
+        </div>
+        {% if edit_url and can_edit_inventory %}<a class="inventory-btn inventory-btn--primary" href="{{ edit_url }}">Edit</a>{% endif %}
+    </header>
+
+    <dl class="inventory-detail-card">
+        {% for label, value in detail_fields %}
+            <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+        {% endfor %}
+    </dl>
+</div>
+{% endblock %}
+

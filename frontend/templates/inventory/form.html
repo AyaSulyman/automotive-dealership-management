@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ form_title }} | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'css/inventory.css' %}">{% endblock %}
+
+{% block content %}
+<div class="inventory-narrow-page">
+    <a class="inventory-back-link" href="{{ back_url }}">← Back to Inventory</a>
+    <header class="inventory-form-heading">
+        <p class="inventory-eyebrow">Inventory &amp; Procurement</p>
+        <h1>{{ form_title }}</h1>
+        <p>{{ form_description }}</p>
+    </header>
+
+    <form class="inventory-server-form" method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="inventory-form-error" role="alert">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="inventory-form-grid">
+            {% for field in form %}
+                <div class="inventory-form-field{% if field.field.widget.input_type == 'checkbox' %} inventory-form-field--checkbox{% endif %}{% if field.name == 'vin' or field.name == 'name' %} span-2{% endif %}">
+                    {% if field.field.widget.input_type == 'checkbox' %}
+                        <label class="inventory-checkbox" for="{{ field.id_for_label }}">{{ field }} <span>{{ field.label }}</span></label>
+                    {% else %}
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                    {% endif %}
+                    {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                    {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <footer class="inventory-form-actions">
+            <a class="inventory-btn inventory-btn--outline" href="{{ back_url }}">Cancel</a>
+            <button class="inventory-btn inventory-btn--primary" type="submit">{{ submit_label }}</button>
+        </footer>
+    </form>
+</div>
+{% endblock %}
+
