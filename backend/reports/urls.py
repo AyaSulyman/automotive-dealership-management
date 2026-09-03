@@ -9,4 +9,6 @@ urlpatterns = [
 
     path("reports/finance/overview", views.FinanceOverviewView.as_view(), name="finance-overview"),
     path("reports/vehicle-financial-summary", views.VehicleFinancialSummaryView.as_view(), name="vehicle-financial-summary"),
+
+    path("audit-log", views.AuditLogListView.as_view(), name="audit-log-list"),
 ]

@@ -10,6 +10,7 @@ from common.pdf import render_simple_document
 
 from .integrations import mark_vehicle_sold
 from .models import Discount, SalesInvoice, TaxRule, TradeIn
+from reports.audit import log_action
 from .serializers import (
     ApplyCreditSerializer, DiscountCreateSerializer, DiscountSerializer,
     SalesInvoiceCreateSerializer, SalesInvoiceSerializer, SalesInvoiceUpdateSerializer,
@@ -84,6 +85,8 @@ class TradeInApplyCreditView(APIView):
         invoice.trade_in_credit = invoice.trade_in_credit + trade_in.appraised_value
         invoice.recompute_totals(tax_rate=_active_tax_rate())
         invoice.save()
+
+        log_action(request.user, "UPDATE", "TradeIn", trade_in.pk, {"credited_invoice_id": invoice.pk, "reference": reference})
 
         return Response(TradeInSerializer(trade_in).data, status=status.HTTP_200_OK)
 
@@ -224,6 +227,8 @@ class SalesInvoiceFinalizeView(APIView):
 
         mark_vehicle_sold(invoice.vehicle_id)
 
+        log_action(request.user, "UPDATE", "SalesInvoice", invoice.pk, {"status": "OPEN", "invoice_number": invoice.invoice_number})
+
         return Response(SalesInvoiceSerializer(invoice).data)
 
 
@@ -318,4 +323,5 @@ class SalesInvoiceCancelView(APIView):
             )
         invoice.status = "CANCELLED"
         invoice.save(update_fields=["status", "updated_at"])
+        log_action(request.user, "UPDATE", "SalesInvoice", invoice.pk, {"status": "CANCELLED"})
         return Response(SalesInvoiceSerializer(invoice).data)
