@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import TradeIn
+from .models import TaxRule, TradeIn
 
 
 class TradeInSerializer(serializers.ModelSerializer):
@@ -27,3 +27,10 @@ class ApplyCreditSerializer(serializers.Serializer):
         if not SalesInvoice.objects.filter(pk=value).exists():
             raise serializers.ValidationError("No sales invoice with that id exists.")
         return value
+
+
+class TaxRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxRule
+        fields = ["id", "jurisdiction", "rate", "applies_to", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
