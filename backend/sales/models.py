@@ -59,3 +59,30 @@ class TradeIn(models.Model):
 
     def __repr__(self):
         return self.__str__()
+
+
+class TaxRule(models.Model):
+    """
+    Admin-configured tax rates used server-side to compute
+    sales_invoice.tax_amount (e.g. the 6.25% state tax shown on the
+    Invoice screen). Standalone table — no FKs in or out.
+    """
+
+    APPLIES_TO_CHOICES = [
+        ("VEHICLE_TYPE", "Vehicle Type"),
+        ("TRANSACTION_TYPE", "Transaction Type"),
+    ]
+
+    jurisdiction = models.CharField(max_length=60)
+    rate = models.DecimalField(max_digits=5, decimal_places=4, help_text="e.g. 0.0625 for 6.25%")
+    applies_to = models.CharField(max_length=60, choices=APPLIES_TO_CHOICES, default="TRANSACTION_TYPE")
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["jurisdiction"]
+
+    def __str__(self):
+        return f"{self.jurisdiction} — {self.rate}"

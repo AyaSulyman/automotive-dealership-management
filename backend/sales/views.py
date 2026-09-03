@@ -3,10 +3,10 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.permissions import IsAdminOrAgent
+from common.permissions import IsAdmin, IsAdminOrAgent
 
-from .models import TradeIn
-from .serializers import ApplyCreditSerializer, TradeInSerializer
+from .models import TaxRule, TradeIn
+from .serializers import ApplyCreditSerializer, TaxRuleSerializer, TradeInSerializer
 
 
 class TradeInListCreateView(generics.ListCreateAPIView):
@@ -68,3 +68,23 @@ class TradeInApplyCreditView(APIView):
         trade_in.save(update_fields=["credited_invoice_id", "credited_reference", "updated_at"])
 
         return Response(TradeInSerializer(trade_in).data, status=status.HTTP_200_OK)
+
+
+class TaxRuleListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /tax-rules     List tax rules (jurisdiction, is_active filters).
+    POST /tax-rules     Create a rate.
+    """
+    queryset = TaxRule.objects.all()
+    serializer_class = TaxRuleSerializer
+    permission_classes = [IsAdmin]
+    filterset_fields = ["jurisdiction", "is_active"]
+
+
+class TaxRuleDetailView(generics.RetrieveUpdateAPIView):
+    """
+    PATCH /tax-rules/{id}   Edit/deactivate a rule.
+    """
+    queryset = TaxRule.objects.all()
+    serializer_class = TaxRuleSerializer
+    permission_classes = [IsAdmin]
