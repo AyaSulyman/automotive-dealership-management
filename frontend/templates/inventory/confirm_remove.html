@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Remove Vehicle | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'css/inventory.css' %}">{% endblock %}
+
+{% block content %}
+<div class="inventory-confirm-card">
+    <p class="inventory-eyebrow">Admin only</p>
+    <h1>Remove {{ item_name }}?</h1>
+    <p>This action will request permanent removal from FastAPI when the backend is connected.</p>
+    <form method="post">
+        {% csrf_token %}
+        <a class="inventory-btn inventory-btn--outline" href="{{ back_url }}">Cancel</a>
+        <button class="inventory-btn inventory-btn--danger" type="submit">Remove Vehicle</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,11 +1,9 @@
 """
-Temporary mock data for the Inventory & Procurement page.
+Temporary preview data for the Inventory & Procurement page.
 
-The Django backend/API is not built yet, so views.py imports from here to
-render the templates with realistic data. Once the real `vehicle`, `vendor`
-and `purchase_order` models/tables exist (see ADMS ERD), replace every
-function here with a real ORM query -- the templates will not need to
-change, since the context keys stay the same.
+The views use this data only while ``ADMS_PREVIEW_MODE`` is enabled. Once an
+``ADMS_API_BASE_URL`` is configured, the same views call FastAPI through the
+Python service layer and keep the templates unchanged.
 
 Status values follow the BRD (VIM-02) exactly:
 IN_TRANSIT, RECEIVED, UNDER_RECONDITIONING, AVAILABLE, RESERVED, SOLD, RETURNED
