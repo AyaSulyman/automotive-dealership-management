@@ -1,13 +1,13 @@
 from rest_framework import serializers
 
-from .models import Payment, PaymentSchedule
+from .models import Payment, PaymentSchedule, FinancingAccount
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            "id", "invoice", "financing_account_id", "amount", "method",
+            "id", "invoice", "financing_account", "amount", "method",
             "reference_number", "receipt_number", "notes", "paid_at",
             "recorded_by", "created_at",
         ]
@@ -17,7 +17,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ["invoice", "financing_account_id", "amount", "method", "reference_number", "notes", "paid_at"]
+        fields = ["invoice", "financing_account", "amount", "method", "reference_number", "notes", "paid_at"]
 
     def validate_amount(self, value):
         if value <= 0:
@@ -50,3 +50,24 @@ class GenerateScheduleSerializer(serializers.Serializer):
     down_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, default=0, min_value=0)
     installment_count = serializers.IntegerField(min_value=1, max_value=120)
     frequency = serializers.ChoiceField(choices=["WEEKLY", "BIWEEKLY", "MONTHLY"], default="MONTHLY")
+
+
+class FinancingAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinancingAccount
+        fields = [
+            "id", "invoice", "lender_name", "down_payment", "term_months",
+            "interest_rate", "monthly_payment", "status", "created_at", "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def validate_invoice(self, value):
+        if FinancingAccount.objects.filter(invoice=value).exclude(pk=getattr(self.instance, "pk", None)).exists():
+            raise serializers.ValidationError("This invoice already has a financing account.")
+        return value
+
+
+class FinancingAccountStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinancingAccount
+        fields = ["status"]

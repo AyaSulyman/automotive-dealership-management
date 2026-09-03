@@ -11,4 +11,7 @@ urlpatterns = [
     path("payment-schedules", views.PaymentScheduleListView.as_view(), name="payment-schedule-list"),
     path("payment-schedules/<int:pk>", views.PaymentScheduleDetailUpdateView.as_view(), name="payment-schedule-detail"),
     path("sales-invoices/<int:pk>/generate-schedule", views.GenerateScheduleView.as_view(), name="generate-schedule"),
+
+    path("financing-accounts", views.FinancingAccountListCreateView.as_view(), name="financing-account-list-create"),
+    path("financing-accounts/<int:pk>", views.FinancingAccountDetailView.as_view(), name="financing-account-detail"),
 ]
