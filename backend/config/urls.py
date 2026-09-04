@@ -16,9 +16,17 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # OpenAPI schema + interactive docs (drf-spectacular). Auto-generated
+    # from the DRF views/serializers below -- Person 1's endpoints will
+    # appear here automatically once merged, no extra wiring needed.
+    path('api/v1/schema', SpectacularAPIView.as_view(), name='schema'),
+    path('api/v1/docs', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/v1/redoc', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     # Person 2 (Aya) — sales/deal lifecycle, payments & financing, reporting.
     # Person 1's /api/v1/auth, /users, /roles, /vendors, /purchase-orders,

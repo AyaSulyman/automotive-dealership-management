@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -21,6 +23,7 @@ class DashboardOverviewView(APIView):
     other figure here is fully computed from Person 2's own data.
     """
 
+    @extend_schema(tags=["Dashboard"], summary="Aggregate KPI overview", responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         year_start = timezone.now().replace(month=1, day=1).date()
         today = timezone.now().date()
@@ -50,6 +53,7 @@ class DashboardOverviewView(APIView):
         return Response(payload)
 
 
+@extend_schema_view(get=extend_schema(tags=["Dashboard"], summary="Recent sales invoices"))
 class RecentInvoicesView(ListAPIView):
     """GET /dashboard/recent-invoices?limit=5"""
     serializer_class = RecentInvoiceSerializer
@@ -63,6 +67,7 @@ class RecentInvoicesView(ListAPIView):
         return Response(serializer.data)
 
 
+@extend_schema_view(get=extend_schema(tags=["Dashboard"], summary="Recent payments"))
 class RecentPaymentsView(ListAPIView):
     """GET /dashboard/recent-payments?limit=5"""
     serializer_class = RecentPaymentSerializer
@@ -86,6 +91,7 @@ class FinanceOverviewView(APIView):
     """
     permission_classes = [IsAdminOrAccountant]
 
+    @extend_schema(tags=["Finance & Reports"], summary="Finance overview (Overview tab)", responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         month_start = timezone.now().replace(day=1).date()
         today = timezone.now().date()
@@ -121,6 +127,7 @@ class VehicleFinancialSummaryView(APIView):
     """
     permission_classes = [IsAdminOrAccountant]
 
+    @extend_schema(tags=["Finance & Reports"], summary="Per-vehicle cost basis vs. sale price", responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         vehicle_id = request.query_params.get("vehicle_id")
         if not vehicle_id:
@@ -147,6 +154,7 @@ class VehicleFinancialSummaryView(APIView):
         })
 
 
+@extend_schema_view(get=extend_schema(tags=["Audit Log"], summary="Query the audit trail (admin-only)"))
 class AuditLogListView(ListAPIView):
     """
     GET /audit-log?entity_type=&entity_id=&user_id=&date_from=&date_to=

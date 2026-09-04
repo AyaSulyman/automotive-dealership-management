@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'django_filters',
+    'drf_spectacular',
 
     # Local apps — Person 2 (Aya): sales/deal lifecycle, payments & financing, reporting
     'sales',
@@ -168,12 +169,59 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
     'EXCEPTION_HANDLER': 'common.exceptions.standard_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # Disabled: DRF's built-in `?format=` override collides with the API
     # spec's own use of `?format=csv` on /reports/payments/export (DRF
     # would try to content-negotiate a "csv" renderer and 404/406 instead
     # of reaching the view). No other endpoint in the spec relies on DRF's
     # format-suffix switching, so this is safe to turn off globally.
     'URL_FORMAT_OVERRIDE': None,
+}
+
+# -----------------------------------------------------------------------
+# drf-spectacular (OpenAPI schema + Swagger UI / ReDoc)
+# Served at /api/v1/schema, /api/v1/docs (Swagger UI), /api/v1/redoc
+# See config/urls.py for the mounted routes.
+# -----------------------------------------------------------------------
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AutoSource ADMS API',
+    'DESCRIPTION': (
+        'Automotive Dealership Management System API.\n\n'
+        'This schema currently documents Person 2\'s scope: Trade-Ins, '
+        'Sales Invoices / Deals, Tax Rules, Payments, Payment Schedules, '
+        'Financing Accounts, Statements, Dashboard, Finance & Reports, '
+        'and the Audit Log. Person 1\'s endpoints (Authentication, Users '
+        '& Roles, Vendors, Purchase Orders, Vehicles, Documents, '
+        'Customers) will appear here automatically once that app is '
+        'merged, since they share the same DRF schema generator — no '
+        'extra wiring needed on either side.'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': '/api/v1/',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SORT_OPERATIONS': False,
+    'TAGS': [
+        {'name': 'Trade-Ins', 'description': 'Trade-in appraisal and crediting.'},
+        {'name': 'Tax Rules', 'description': 'Admin-configured tax rates.'},
+        {'name': 'Sales Invoices', 'description': 'The deal / invoice lifecycle.'},
+        {'name': 'Payments', 'description': 'Recording payments and receipts.'},
+        {'name': 'Payment Schedules', 'description': 'Installment schedules.'},
+        {'name': 'Financing Accounts', 'description': 'Financing agreements (1:1 with an invoice).'},
+        {'name': 'Statements', 'description': 'Customer statements.'},
+        {'name': 'Dashboard', 'description': 'Aggregate KPI cards for the staff dashboard.'},
+        {'name': 'Finance & Reports', 'description': 'Finance overview and per-vehicle summaries.'},
+        {'name': 'Audit Log', 'description': 'Internal audit trail (admin-only).'},
+    ],
+    # Several models have a "status" field with different choice sets
+    # (SalesInvoice, PaymentSchedule, FinancingAccount, AuditLog.action) --
+    # name each enum explicitly so Swagger doesn't auto-generate ambiguous
+    # names like "StatusDdfEnum".
+    'ENUM_NAME_OVERRIDES': {
+        'SalesInvoiceStatusEnum': 'sales.models.SalesInvoice.STATUS_CHOICES',
+        'PaymentScheduleStatusEnum': 'payments.models.PaymentSchedule.STATUS_CHOICES',
+        'FinancingAccountStatusEnum': 'payments.models.FinancingAccount.STATUS_CHOICES',
+    },
 }
 
 from datetime import timedelta  # noqa: E402
