@@ -4,6 +4,8 @@ from django.db import models
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,6 +28,10 @@ def _generate_receipt_number():
     return f"RCT-{year}-{get_random_string(6, allowed_chars='0123456789')}"
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Payments"], summary="List / filter payments (Payments Ledger)"),
+    post=extend_schema(tags=["Payments"], summary="Record Payment"),
+)
 class PaymentListCreateView(generics.ListCreateAPIView):
     """
     GET  /payments   List/filter -- Payments Ledger table.
@@ -70,6 +76,7 @@ class PaymentListCreateView(generics.ListCreateAPIView):
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(get=extend_schema(tags=["Payments"], summary="Payment detail"))
 class PaymentDetailView(generics.RetrieveAPIView):
     """GET /payments/{id} -- payment detail."""
     queryset = Payment.objects.select_related("invoice").all()
@@ -81,6 +88,7 @@ class PaymentReceiptView(APIView):
     """GET /payments/{id}/receipt -- printable/PDF receipt."""
     permission_classes = [IsAdminAgentOrAccountant]
 
+    @extend_schema(tags=["Payments"], summary="Printable / PDF receipt", responses={200: OpenApiTypes.BINARY})
     def get(self, request, pk):
         payment = generics.get_object_or_404(Payment, pk=pk)
         invoice = payment.invoice
@@ -118,6 +126,7 @@ class PaymentsExportView(APIView):
     """GET /reports/payments/export?format=csv -- "Export Report" button."""
     permission_classes = [IsAdminOrAccountant]
 
+    @extend_schema(tags=["Payments"], summary="Export payments (CSV)", responses={200: OpenApiTypes.BINARY})
     def get(self, request):
         payments = Payment.objects.select_related("invoice", "recorded_by").all()
         for key, value in request.query_params.items():
@@ -137,6 +146,7 @@ class PaymentsExportView(APIView):
         return response
 
 
+@extend_schema_view(get=extend_schema(tags=["Payment Schedules"], summary="List installments for an invoice"))
 class PaymentScheduleListView(generics.ListAPIView):
     """GET /payment-schedules?invoice_id= — list installments for an invoice."""
     queryset = PaymentSchedule.objects.select_related("invoice").all()
@@ -145,6 +155,7 @@ class PaymentScheduleListView(generics.ListAPIView):
     filterset_fields = ["invoice"]
 
 
+@extend_schema_view(patch=extend_schema(tags=["Payment Schedules"], summary="Manually adjust an installment"))
 class PaymentScheduleDetailUpdateView(generics.UpdateAPIView):
     """PATCH /payment-schedules/{id} — manual adjustment to a due date/amount."""
     queryset = PaymentSchedule.objects.all()
@@ -164,6 +175,8 @@ class GenerateScheduleView(APIView):
     """
     permission_classes = [IsAdminAgentOrAccountant]
 
+    @extend_schema(tags=["Payment Schedules"], summary="Generate an installment schedule",
+                   request=GenerateScheduleSerializer, responses=PaymentScheduleSerializer(many=True))
     def post(self, request, pk):
         from sales.models import SalesInvoice
         import datetime
@@ -215,6 +228,10 @@ class GenerateScheduleView(APIView):
         return Response(PaymentScheduleSerializer(schedule, many=True).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Financing Accounts"], summary="List financing agreements"),
+    post=extend_schema(tags=["Financing Accounts"], summary="Create a financing account"),
+)
 class FinancingAccountListCreateView(generics.ListCreateAPIView):
     """
     GET  /financing-accounts?invoice_id=   list financing agreements.
@@ -235,6 +252,10 @@ class FinancingAccountListCreateView(generics.ListCreateAPIView):
         log_action(self.request.user, "CREATE", "FinancingAccount", instance.pk, {"invoice_id": instance.invoice_id, "lender_name": instance.lender_name})
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Financing Accounts"], summary="Financing account detail"),
+    patch=extend_schema(tags=["Financing Accounts"], summary="Update financing status"),
+)
 class FinancingAccountDetailView(generics.RetrieveUpdateAPIView):
     """
     GET   /financing-accounts/{id}   detail.
@@ -287,6 +308,8 @@ class StatementGenerateView(APIView):
     creates a statement row with a point-in-time summary snapshot."""
     permission_classes = [IsAdminOrAccountant]
 
+    @extend_schema(tags=["Statements"], summary="Generate a customer statement",
+                   request=StatementGenerateSerializer, responses=StatementSerializer)
     def post(self, request):
         serializer = StatementGenerateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -300,6 +323,7 @@ class StatementGenerateView(APIView):
         return Response(StatementSerializer(statement).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(get=extend_schema(tags=["Statements"], summary="List a customer's statements"))
 class StatementListView(generics.ListAPIView):
     """GET /statements?customer_id= — list a customer's past statements."""
     queryset = Statement.objects.all()
@@ -315,6 +339,8 @@ class StatementDetailView(APIView):
     """
     permission_classes = [IsAdminOrAccountant]
 
+    @extend_schema(tags=["Statements"], summary="Fetch a statement (JSON, or PDF with ?pdf=1)",
+                   responses={200: OpenApiTypes.OBJECT})
     def get(self, request, pk):
         statement = generics.get_object_or_404(Statement, pk=pk)
 

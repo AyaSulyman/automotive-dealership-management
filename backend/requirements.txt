@@ -4,6 +4,7 @@ django-cors-headers==4.9.0
 djangorestframework==3.18.0
 djangorestframework-simplejwt==5.5.1
 django-filter==25.2
+drf-spectacular==0.28.0
 reportlab==4.2.5
 psycopg==3.3.4
 psycopg-binary==3.3.4

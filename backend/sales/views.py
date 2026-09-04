@@ -1,6 +1,8 @@
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +20,10 @@ from .serializers import (
 )
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Trade-Ins"], summary="List trade-ins"),
+    post=extend_schema(tags=["Trade-Ins"], summary="Capture a trade-in appraisal"),
+)
 class TradeInListCreateView(generics.ListCreateAPIView):
     """
     POST /trade-ins        Capture appraisal.
@@ -31,6 +37,10 @@ class TradeInListCreateView(generics.ListCreateAPIView):
         serializer.save(appraised_by=self.request.user)
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Trade-Ins"], summary="Trade-in detail"),
+    patch=extend_schema(tags=["Trade-Ins"], summary="Edit a trade-in (blocked once credited)"),
+)
 class TradeInDetailView(generics.RetrieveUpdateAPIView):
     """
     GET   /trade-ins/{id}     Trade-in detail.
@@ -60,6 +70,8 @@ class TradeInApplyCreditView(APIView):
     """
     permission_classes = [IsAdminOrAgent]
 
+    @extend_schema(tags=["Trade-Ins"], summary="Credit a trade-in to a DRAFT invoice",
+                   request=ApplyCreditSerializer, responses=TradeInSerializer)
     def post(self, request, pk):
         trade_in = generics.get_object_or_404(TradeIn, pk=pk)
         if trade_in.is_credited:
@@ -91,6 +103,10 @@ class TradeInApplyCreditView(APIView):
         return Response(TradeInSerializer(trade_in).data, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Tax Rules"], summary="List tax rules"),
+    post=extend_schema(tags=["Tax Rules"], summary="Create a tax rate"),
+)
 class TaxRuleListCreateView(generics.ListCreateAPIView):
     """
     GET  /tax-rules     List tax rules (jurisdiction, is_active filters).
@@ -102,6 +118,10 @@ class TaxRuleListCreateView(generics.ListCreateAPIView):
     filterset_fields = ["jurisdiction", "is_active"]
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Tax Rules"], summary="Tax rule detail"),
+    patch=extend_schema(tags=["Tax Rules"], summary="Edit / deactivate a tax rule"),
+)
 class TaxRuleDetailView(generics.RetrieveUpdateAPIView):
     """
     PATCH /tax-rules/{id}   Edit/deactivate a rule.
@@ -116,6 +136,10 @@ def _active_tax_rate():
     return rule.rate if rule else None
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Sales Invoices"], summary="List / search sales invoices"),
+    post=extend_schema(tags=["Sales Invoices"], summary="Create Deal Worksheet (status DRAFT)"),
+)
 class SalesInvoiceListCreateView(generics.ListCreateAPIView):
     """
     GET  /sales-invoices    List/search invoices (customer_id, vehicle_id,
@@ -148,6 +172,10 @@ class SalesInvoiceListCreateView(generics.ListCreateAPIView):
         return Response(SalesInvoiceSerializer(invoice).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(
+    get=extend_schema(tags=["Sales Invoices"], summary="Sales invoice detail (Deal Summary / printable Invoice source)"),
+    patch=extend_schema(tags=["Sales Invoices"], summary="Edit a DRAFT deal"),
+)
 class SalesInvoiceDetailView(generics.RetrieveUpdateAPIView):
     """
     GET   /sales-invoices/{id}   Full detail — Deal Summary + printable Invoice.
@@ -184,6 +212,7 @@ class SalesInvoiceSaveDraftView(APIView):
     """POST /sales-invoices/{id}/save-draft — explicit "Save Draft" action."""
     permission_classes = [IsAdminOrAgent]
 
+    @extend_schema(tags=["Sales Invoices"], summary="Save Draft", request=None, responses=SalesInvoiceSerializer)
     def post(self, request, pk):
         invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
         if invoice.status != "DRAFT":
@@ -204,6 +233,9 @@ class SalesInvoiceFinalizeView(APIView):
     """
     permission_classes = [IsAdminOrAgent]
 
+    @extend_schema(tags=["Sales Invoices"], summary="Finalize Deal",
+                   description="Generates invoice_number, sets status=OPEN, marks the vehicle SOLD.",
+                   request=None, responses=SalesInvoiceSerializer)
     def post(self, request, pk):
         invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
 
@@ -236,6 +268,8 @@ class SalesInvoiceDiscountsView(APIView):
     """POST /sales-invoices/{id}/discounts — add a line-item discount."""
     permission_classes = [IsAdminOrAgent]
 
+    @extend_schema(tags=["Sales Invoices"], summary="Add a line-item discount",
+                   request=DiscountCreateSerializer, responses={201: OpenApiTypes.OBJECT})
     def post(self, request, pk):
         invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
         if invoice.status != "DRAFT":
@@ -271,6 +305,8 @@ class SalesInvoicePdfView(APIView):
     """GET /sales-invoices/{id}/pdf — printable invoice."""
     permission_classes = [IsAdminOrAgent]
 
+    @extend_schema(tags=["Sales Invoices"], summary="Printable invoice (PDF)",
+                   responses={200: OpenApiTypes.BINARY})
     def get(self, request, pk):
         invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
 
@@ -314,6 +350,7 @@ class SalesInvoiceCancelView(APIView):
     Full reversal of a finalized invoice (SAL-04) is Future."""
     permission_classes = [IsAdminOrAgent]
 
+    @extend_schema(tags=["Sales Invoices"], summary="Cancel a DRAFT deal", request=None, responses=SalesInvoiceSerializer)
     def post(self, request, pk):
         invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
         if invoice.status != "DRAFT":
