@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Finance &amp; Reports | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'crm_finance/css/crm_finance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="business-page">
+    <header class="business-heading">
+        <div>
+            <p class="business-eyebrow">Accounting</p>
+            <h1>Finance &amp; Reports</h1>
+            <p>Review sales, payments, inventory costs, and vehicle profitability.</p>
+        </div>
+    </header>
+
+    {% if report_errors %}
+        <div class="business-notice is-error" role="alert">{% for error in report_errors %}<p>{{ error }}</p>{% endfor %}</div>
+    {% endif %}
+
+    <nav class="business-tabs" aria-label="Finance report sections">
+        <a class="{% if active_tab == 'overview' %}is-active{% endif %}" href="{% url 'crm_finance:finance-reports' %}?tab=overview">Overview</a>
+        <a class="{% if active_tab == 'vehicle-summary' %}is-active{% endif %}" href="{% url 'crm_finance:finance-reports' %}?tab=vehicle-summary">Vehicle Financial Summary</a>
+    </nav>
+
+    {% if active_tab == 'overview' %}
+        <section class="report-grid" aria-label="Finance overview">
+            <article class="report-card">
+                <span class="report-icon report-icon--blue" aria-hidden="true">↗</span>
+                <p>Total Sales (MTD)</p>
+                <strong>{{ overview.total_sales }}</strong>
+                <small>Finalized sales this month</small>
+            </article>
+            <article class="report-card">
+                <span class="report-icon report-icon--green" aria-hidden="true">$</span>
+                <p>Payments Received</p>
+                <strong>{{ overview.payments_received }}</strong>
+                <small>{{ overview.payment_count }} transactions recorded</small>
+            </article>
+            <article class="report-card report-card--wide">
+                <span class="report-icon report-icon--slate" aria-hidden="true">▦</span>
+                <p>Current Inventory Cost Basis</p>
+                <strong>{{ overview.inventory_cost }}</strong>
+                <dl class="report-breakdown">
+                    <div><dt>New vehicles</dt><dd>{{ overview.new_cost }}</dd></div>
+                    <div><dt>Used vehicles</dt><dd>{{ overview.used_cost }}</dd></div>
+                    <div><dt>Units</dt><dd>{{ overview.inventory_units }}</dd></div>
+                </dl>
+            </article>
+        </section>
+    {% else %}
+        <section class="business-card">
+            <form class="business-toolbar" method="get" action="{% url 'crm_finance:finance-reports' %}">
+                <input type="hidden" name="tab" value="vehicle-summary">
+                <label class="business-search">
+                    <span class="visually-hidden">Find a vehicle</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                    <input name="vehicle_id" type="search" value="{{ vehicle_query }}" placeholder="Enter vehicle ID or VIN…" autocomplete="off">
+                </label>
+                <button class="business-btn business-btn--outline" type="submit">View Summary</button>
+                {% if vehicle_query %}<a class="business-clear" href="{% url 'crm_finance:finance-reports' %}?tab=vehicle-summary">Clear</a>{% endif %}
+            </form>
+
+            <div class="business-table-wrap">
+                <table class="business-table">
+                    <thead><tr><th>Vehicle</th><th>Acquisition</th><th>Transport</th><th>Reconditioning</th><th>Cost Basis</th><th>Sale Price</th><th>Gross Profit</th></tr></thead>
+                    <tbody>
+                        {% for item in vehicle_summaries %}
+                        <tr>
+                            <td><strong>{{ item.vehicle }}</strong><small>{{ item.vin }}</small></td>
+                            <td>{{ item.acquisition_cost }}</td>
+                            <td>{{ item.transport_cost }}</td>
+                            <td>{{ item.recon_cost }}</td>
+                            <td class="cell-strong">{{ item.cost_basis }}</td>
+                            <td class="cell-strong">{{ item.sale_price }}</td>
+                            <td><span class="profit-value{% if item.gross_profit_value < 0 %} is-negative{% endif %}">{{ item.gross_profit }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="business-empty" colspan="7">{% if vehicle_query %}No financial summary was found for this vehicle.{% else %}Enter a vehicle ID or VIN to view its financial summary.{% endif %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}
+
