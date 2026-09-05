@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoice - AutoSource ADMS{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto; padding: 20px;">
+    <!-- Top Action Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: white; padding: 16px 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <a href="{% url 'inventory:deal-add' %}" style="display: inline-flex; align-items: center; gap: 8px; color: #475569; text-decoration: none; font-weight: 500;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to Sales
+        </a>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="alert('Record Payment clicked');" style="padding: 8px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-weight: 500; color: #334155;">
+                Record Payment
+            </button>
+            <button onclick="window.print();" style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                Print Invoice
+            </button>
+        </div>
+    </div>
+
+    <!-- Invoice Box -->
+    <div style="background: white; padding: 40px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 24px; margin-bottom: 24px;">
+            <div>
+                <h3 style="margin: 0 0 4px 0; color: #1e293b; font-weight: 700;">AutoSource</h3>
+                <p style="margin: 0 0 8px 0; color: #64748b; font-size: 14px;">Dealership Management</p>
+                <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.5;">
+                    123 Dealerway Blvd.<br>
+                    Automotive City, AC 90210<br>
+                    (555) 019-8273<br>
+                    finance@autosource.app
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0 0 8px 0; color: #0f172a; font-weight: 700;">INVOICE</h2>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px;"><strong>INVOICE NO:</strong> INV-2023-8942</p>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px;"><strong>DATE:</strong> Oct 24, 2023</p>
+                <p style="margin: 0; color: #64748b; font-size: 13px;"><strong>DUE DATE:</strong> Nov 23, 2023</p>
+            </div>
+        </div>
+
+        <!-- Bill To & Vehicle Details -->
+        <div style="display: flex; justify-content: space-between; margin-bottom: 30px; gap: 40px;">
+            <div style="flex: 1; border-right: 1px solid #e2e8f0; padding-right: 20px;">
+                <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">BILL TO</p>
+                <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px;">Eleanor Vance</h4>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px; display: flex; justify-content: space-between;">Customer ID: <span style="color: #1e293b; font-weight: 500;">CUS-884-912</span></p>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px; display: flex; justify-content: space-between;">Phone: <span style="color: #1e293b; font-weight: 500;">(555) 867-5309</span></p>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px; display: flex; justify-content: space-between;">Email: <span style="color: #1e293b; font-weight: 500;">e.vance@example.com</span></p>
+                <p style="margin: 0; color: #64748b; font-size: 13px; display: flex; justify-content: space-between;">Address: <span style="color: #1e293b; font-weight: 500; text-align: right;">44 Hill House Rd.</span></p>
+            </div>
+            <div style="flex: 1;">
+                <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">VEHICLE DETAILS</p>
+                <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px;">2023 Audi Q5 Premium Plus</h4>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px; display: flex; justify-content: space-between;">VIN: <span style="color: #1e293b; font-family: monospace;">WA1AAAFZ7M109283</span></p>
+                <p style="margin: 0 0 16px 0; color: #64748b; font-size: 13px; display: flex; justify-content: space-between;">Status: <span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">Delivered</span></p>
+                
+                <p style="margin: 0 0 6px 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">SALES AGENT</p>
+                <p style="margin: 0; color: #1e293b; font-size: 13px; font-weight: 500;">Michael Scott <span style="color: #64748b; font-weight: normal;">(ID: AGT-001)</span></p>
+            </div>
+        </div>
+
+        <!-- Financial Summary -->
+        <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 16px; font-weight: 700;">Financial Summary</h4>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 0; color: #334155;">Vehicle Base Price</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #1e293b;">$48,500.00</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 0 8px 16px; color: #64748b; font-size: 13px;">+ Premium Paint (Mythos Black)</td>
+                <td style="padding: 8px 0; text-align: right; color: #64748b;">$595.00</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 8px 0 12px 16px; color: #64748b; font-size: 13px;">+ Destination Charge</td>
+                <td style="padding: 8px 0 12px 0; text-align: right; color: #64748b;">$1,195.00</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0; font-weight: 600;">
+                <td style="padding: 12px 0; color: #1e293b;">SUBTOTAL</td>
+                <td style="padding: 12px 0; text-align: right; color: #1e293b;">$50,290.00</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 0; color: #dc2626; font-size: 13px;">Trade-In: 2018 Honda CR-V (Appraised)</td>
+                <td style="padding: 8px 0; text-align: right; color: #dc2626;">-$18,500.00</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 0; color: #334155; font-size: 13px;">State Tax (6.25%)</td>
+                <td style="padding: 8px 0; text-align: right; color: #334155;">$1,986.88</td>
+            </tr>
+            <tr style="border-bottom: 2px solid #e2e8f0;">
+                <td style="padding: 8px 0 16px 0; color: #334155; font-size: 13px;">Dealer Doc Fee</td>
+                <td style="padding: 8px 0 16px 0; text-align: right; color: #334155;">$399.00</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f1f5f9; font-weight: 700; font-size: 16px;">
+                <td style="padding: 16px 0; color: #0f172a;">Total Amount</td>
+                <td style="padding: 16px 0; text-align: right; color: #0f172a;">$34,175.88</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 13px;">Less Payments Received</td>
+                <td style="padding: 8px 0; text-align: right; color: #64748b;">-$10,000.00</td>
+            </tr>
+        </table>
+
+        <!-- Balance Due Box -->
+        <div style="background: #0f172a; color: white; padding: 20px 24px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin: 30px 0;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">BALANCE DUE</h3>
+            <h2 style="margin: 0; font-size: 24px; font-weight: 700; color: #38bdf8;">$24,175.88</h2>
+        </div>
+
+        <!-- Payment History -->
+        <h4 style="margin: 30px 0 12px 0; color: #1e293b; font-size: 15px; font-weight: 700;">PAYMENT HISTORY</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b;">
+                    <th style="padding: 10px 12px;">DATE</th>
+                    <th style="padding: 10px 12px;">RECEIPT NO.</th>
+                    <th style="padding: 10px 12px;">METHOD</th>
+                    <th style="padding: 10px 12px; text-align: right;">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px 12px; color: #334155;">Oct 24, 2023</td>
+                    <td style="padding: 10px 12px; color: #334155;">RCP-8942-01</td>
+                    <td style="padding: 10px 12px; color: #334155;">Cashier's Check</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1e293b;">$10,000.00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px 12px; color: #334155;">Oct 20, 2023</td>
+                    <td style="padding: 10px 12px; color: #334155;">DEP-8942-00</td>
+                    <td style="padding: 10px 12px; color: #334155;">Credit Card (Deposit)</td>
+                    <td style="padding: 10px 12px; text-align: right; color: #64748b;">$500.00 (Refunded)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Footer Note -->
+        <div style="text-align: center; color: #94a3b8; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px;">
+            <p style="margin: 0 0 4px 0;">Thank you for your business. Please remit payment by the due date to avoid late fees.</p>
+            <p style="margin: 0; font-weight: 700; color: #475569;">AUTOSOURCE ADMS SYSTEM GENERATED</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

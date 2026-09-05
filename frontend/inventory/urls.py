@@ -44,4 +44,10 @@ urlpatterns = [
         views.purchase_order_status_page,
         name="purchase-order-status",
     ),
+
+    path("inventory/deals/add/", views.deal_add_page, name="deal-add"),
+    path("inventory/deals/<str:deal_id>/", views.deal_detail_page, name="deal-detail"),
+    path("inventory/deals/<str:deal_id>/edit/", views.deal_edit_page, name="deal-edit"),
+    path('deals/<int:deal_id>/invoice/', views.deal_invoice_view, name='deal-invoice'),
+    path('inventory/deals/<int:deal_id>/invoice/', views.deal_invoice_view, name='deal-invoice'),
 ]

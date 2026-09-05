@@ -158,6 +158,64 @@ class PurchaseOrderStatusForm(forms.Form):
         ("RECEIVED", "Received"),
         ("CLOSED", "Closed"),
     )
-
     status = forms.ChoiceField(choices=STATUS_CHOICES)
 
+
+class DealForm(forms.Form):
+    DEAL_STATUS_CHOICES = (
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("CLOSED", "Closed"),
+    )
+
+    customer = forms.CharField(
+        max_length=100,
+        widget=forms.Select(
+            choices=[('', 'Select Customer'), ('1', 'Eleanor Vance')],
+            attrs=FORM_CONTROL
+        )
+    )
+    vehicle = forms.CharField(
+        widget=forms.Select(
+            choices=[('', 'Select Available Vehicle'), ('v1', '2024 Veloce Executive Sedan')],
+            attrs=FORM_CONTROL
+        )
+    )
+    sale_price = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        initial=54200.00,
+        widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"})
+    )
+    discount = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        initial=-1500.00,
+        required=False,
+        widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"})
+    )
+    tax = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        initial=4216.00,
+        widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"})
+    )
+    trade_in_details = forms.CharField(
+        widget=forms.Textarea(attrs={**FORM_CONTROL, 'rows': 2, 'placeholder': '2018 Horizon SUV - Black'}),
+        required=False
+    )
+    status = forms.ChoiceField(
+        choices=DEAL_STATUS_CHOICES,
+        widget=forms.Select(attrs=FORM_CONTROL)
+    )
+
+    def api_payload(self):
+        return {
+            "customer": self.cleaned_data["customer"],
+            "vehicle": self.cleaned_data["vehicle"],
+            "sale_price": float(self.cleaned_data["sale_price"]),
+            "discount": float(self.cleaned_data["discount"] or 0),
+            "tax": float(self.cleaned_data["tax"]),
+            "trade_in_details": self.cleaned_data["trade_in_details"],
+            "status": self.cleaned_data["status"],
+        }
