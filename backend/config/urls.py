@@ -28,9 +28,11 @@ urlpatterns = [
     path('api/v1/docs', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/v1/redoc', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
+    # Person 1 (Omar) — authentication & identity.
+    path('api/v1/', include('accounts.urls')),
     # Person 2 (Aya) — sales/deal lifecycle, payments & financing, reporting.
-    # Person 1's /api/v1/auth, /users, /roles, /vendors, /purchase-orders,
-    # /vehicles, /documents, /customers land under the same prefix.
+    # Person 1's /users, /roles, /vendors, /purchase-orders, /vehicles,
+    # /documents, /customers land under the same prefix.
     path('api/v1/', include('sales.urls')),
     path('api/v1/', include('payments.urls')),
     path('api/v1/', include('reports.urls')),
