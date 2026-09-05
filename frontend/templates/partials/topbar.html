@@ -1,8 +1,18 @@
-<header class="topbar">
-  
+<header class="app-topbar">
+    <div class="topbar-left">
+        <label class="icon-button mobile-menu-button" for="sidebar-state" aria-label="Open navigation">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </label>
+        <a class="topbar-brand" href="{% url 'dashboard' %}">AutoSource <span>ADMS</span></a>
+    </div>
 
-  <div class="topbar-profile">
-    <span class="topbar-profile__label">Admin Profile</span>
-    <div class="topbar-profile__avatar">AD</div>
-  </div>
+    <div class="topbar-actions">
+        <div class="profile-summary">
+            <span class="profile-summary__text">
+                <strong>{{ user_identity.name|default:"Employee Profile" }}</strong>
+                <small>{{ user_identity.role_display|default:"Employee" }}</small>
+            </span>
+            <span class="profile-avatar" aria-hidden="true">{{ user_identity.initials|default:"EP" }}</span>
+        </div>
+    </div>
 </header>

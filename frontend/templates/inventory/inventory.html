@@ -1,642 +1,189 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Inventory & Procurement{% endblock %}
-
-{% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/inventory.css' %}">
-{% endblock %}
+{% block title %}Inventory &amp; Procurement | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'css/inventory.css' %}">{% endblock %}
 
 {% block content %}
-  <div class="page-header">
-    <div>
-      <h1>Inventory &amp; Procurement</h1>
-      <p>Manage vehicles, vendors, and purchasing operations.</p>
-    </div>
-    <button class="btn btn-primary" id="openAddVehicle" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      Add Vehicle
-    </button>
-  </div>
-
-  <div class="tabs" role="tablist">
-    <button class="tab is-active" data-tab="vehicles" role="tab">VEHICLES</button>
-    <button class="tab" data-tab="vendors" role="tab">VENDORS</button>
-    <button class="tab" data-tab="purchase-orders" role="tab">PURCHASE ORDERS</button>
-  </div>
-
-  <!-- ===================== VEHICLES ===================== -->
-  <section class="tab-panel is-active" data-panel="vehicles">
-    <div class="card">
-      <div class="card-toolbar">
-        <div class="field-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="vehicleSearch" placeholder="Search by VIN...">
+<div class="inventory-page">
+    <header class="inventory-page-header">
+        <div>
+            <p class="inventory-eyebrow">Operations</p>
+            <h1>Inventory &amp; Procurement</h1>
+            <p>Manage vehicles, vendors, and purchasing operations.</p>
         </div>
-        <select class="field-select" id="statusFilter">
-          <option value="">All Statuses</option>
-          {% for choice in status_choices %}
-            <option value="{{ choice.value }}">{{ choice.label }}</option>
-          {% endfor %}
-        </select>
-      </div>
+        {% if can_edit_inventory %}
+            {% if active_tab == 'vehicles' %}
+                <a class="inventory-btn inventory-btn--primary" href="{% url 'inventory:vehicle-add' %}">
+                    <span aria-hidden="true">+</span> Add Vehicle
+                </a>
+            {% elif active_tab == 'vendors' %}
+                <a class="inventory-btn inventory-btn--primary" href="{% url 'inventory:vendor-add' %}">
+                    <span aria-hidden="true">+</span> Add Vendor
+                </a>
+            {% endif %}
+        {% endif %}
+    </header>
 
-      <div class="table-wrap">
-        <table class="data-table" id="vehiclesTable">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>VIN</th>
-              <th>VEHICLE</th>
-              <th>PURCHASE ORDER</th>
-              <th>STATUS</th>
-              <th>COST BASIS</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for v in vehicles %}
-            <tr data-vin="{{ v.vin|lower }}" data-status="{{ v.status }}">
-              <td class="cell-id">{{ v.id }}</td>
-              <td class="cell-muted">{{ v.vin }}</td>
-              <td class="cell-strong">{{ v.year }} {{ v.make }} {{ v.model }}</td>
-              <td><a href="#" class="cell-link">{{ v.purchase_order }}</a></td>
-              <td><span class="badge {{ v.status_style }}">{{ v.status_label }}</span></td>
-              <td class="cell-strong">${{ v.cost_basis|floatformat:2 }}</td>
-              <td class="row-menu">
-                <button class="row-menu__btn" type="button" data-menu-toggle>
-                  <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
-                </button>
-                <div class="row-menu__dropdown">
-                  <a href="#" class="action-view">View details</a>
-                  <a href="#" class="action-edit-vehicle">Edit vehicle</a>
-                  <button type="button" class="is-danger action-remove">Remove</button>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-footer">
-        <span class="table-footer__count">Showing 1 to {{ vehicles|length }} of 45 entries</span>
-        <div class="table-footer__nav">
-          <button class="btn btn-outline">Previous</button>
-          <button class="btn btn-outline">Next</button>
+    {% if inventory_errors %}
+        <div class="inventory-notice is-error" role="alert">
+            {% for error in inventory_errors %}<p>{{ error }}</p>{% endfor %}
         </div>
-      </div>
-    </div>
-  </section>
+    {% endif %}
 
-  <!-- ===================== VENDORS ===================== -->
-  <section class="tab-panel" data-panel="vendors">
-    <div class="card">
-      <div class="card-toolbar">
-        <div class="field-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="vendorSearch" placeholder="Search vendors...">
+    <nav class="inventory-tabs" aria-label="Inventory sections">
+        <a class="inventory-tab{% if active_tab == 'vehicles' %} is-active{% endif %}" href="{% url 'inventory:inventory' %}?tab=vehicles" {% if active_tab == 'vehicles' %}aria-current="page"{% endif %}>Vehicles</a>
+        <a class="inventory-tab{% if active_tab == 'vendors' %} is-active{% endif %}" href="{% url 'inventory:inventory' %}?tab=vendors" {% if active_tab == 'vendors' %}aria-current="page"{% endif %}>Vendors</a>
+        <a class="inventory-tab{% if active_tab == 'purchase-orders' %} is-active{% endif %}" href="{% url 'inventory:inventory' %}?tab=purchase-orders" {% if active_tab == 'purchase-orders' %}aria-current="page"{% endif %}>Purchase Orders</a>
+    </nav>
+
+    <section class="inventory-card" aria-labelledby="{{ active_tab }}-heading">
+        <h2 id="{{ active_tab }}-heading" class="visually-hidden">
+            {% if active_tab == 'vehicles' %}Vehicles{% elif active_tab == 'vendors' %}Vendors{% else %}Purchase Orders{% endif %}
+        </h2>
+
+        <form class="inventory-toolbar" method="get" action="{% url 'inventory:inventory' %}">
+            <input type="hidden" name="tab" value="{{ active_tab }}">
+            <label class="inventory-search">
+                <span class="visually-hidden">Search</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input name="search" type="search" value="{{ search_query }}" placeholder="{% if active_tab == 'vehicles' %}Search VIN, make, or model…{% elif active_tab == 'vendors' %}Search vendors…{% else %}Search purchase orders…{% endif %}" autocomplete="off">
+            </label>
+
+            <label class="visually-hidden" for="inventory-status">Filter by status</label>
+            <select id="inventory-status" class="inventory-select" name="status">
+                {% if active_tab == 'vendors' %}
+                    <option value="">All Vendors</option>
+                    <option value="active"{% if selected_status == 'active' %} selected{% endif %}>Active</option>
+                    <option value="inactive"{% if selected_status == 'inactive' %} selected{% endif %}>Inactive</option>
+                {% elif active_tab == 'purchase-orders' %}
+                    <option value="">All Statuses</option>
+                    <option value="PENDING"{% if selected_status == 'PENDING' %} selected{% endif %}>Pending</option>
+                    <option value="RECEIVED"{% if selected_status == 'RECEIVED' %} selected{% endif %}>Received</option>
+                    <option value="CLOSED"{% if selected_status == 'CLOSED' %} selected{% endif %}>Closed</option>
+                {% else %}
+                    <option value="">All Statuses</option>
+                    {% for choice in status_choices %}
+                        <option value="{{ choice.value }}"{% if selected_status == choice.value %} selected{% endif %}>{{ choice.label }}</option>
+                    {% endfor %}
+                {% endif %}
+            </select>
+            <button class="inventory-btn inventory-btn--filter" type="submit">Apply</button>
+            {% if search_query or selected_status %}
+                <a class="inventory-clear" href="{% url 'inventory:inventory' %}?tab={{ active_tab }}">Clear</a>
+            {% endif %}
+        </form>
+
+        <div class="inventory-table-wrap">
+            {% if active_tab == 'vehicles' %}
+                <table class="inventory-table">
+                    <thead><tr><th>ID</th><th>VIN</th><th>Vehicle</th><th>Purchase Order</th><th>Status</th><th>Cost Basis</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                    {% for vehicle in rows %}
+                        <tr>
+                            <td class="cell-id">{{ vehicle.id }}</td>
+                            <td class="cell-muted">{{ vehicle.vin }}</td>
+                            <td class="cell-strong">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</td>
+                            <td>{{ vehicle.purchase_order }}</td>
+                            <td><span class="inventory-badge {{ vehicle.status_style }}">{{ vehicle.status_label }}</span></td>
+                            <td class="cell-strong">{{ vehicle.cost_basis_display }}</td>
+                            <td class="inventory-actions-cell">
+                                <details class="inventory-menu">
+                                    <summary aria-label="Actions for {{ vehicle.id }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
+                                    <div class="inventory-menu__items">
+                                        <a href="{% url 'inventory:vehicle-detail' vehicle.id %}">View details</a>
+                                        {% if can_edit_inventory %}<a href="{% url 'inventory:vehicle-edit' vehicle.id %}">Edit vehicle</a>{% endif %}
+                                        {% if can_remove_inventory %}<a class="is-danger" href="{% url 'inventory:vehicle-remove' vehicle.id %}">Remove</a>{% endif %}
+                                    </div>
+                                </details>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td class="inventory-empty" colspan="7">No vehicles match these filters.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% elif active_tab == 'vendors' %}
+                <table class="inventory-table">
+                    <thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Email</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                    {% for vendor in rows %}
+                        <tr>
+                            <td class="cell-id">{{ vendor.id }}</td>
+                            <td class="cell-strong">{{ vendor.name }}</td>
+                            <td class="cell-muted">{{ vendor.contact_name }}</td>
+                            <td class="cell-muted">{{ vendor.email }}</td>
+                            <td><span class="inventory-badge {{ vendor.status_style }}">{{ vendor.status_label }}</span></td>
+                            <td class="inventory-actions-cell">
+                                <details class="inventory-menu">
+                                    <summary aria-label="Actions for {{ vendor.name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
+                                    <div class="inventory-menu__items">
+                                        <a href="{% url 'inventory:vendor-detail' vendor.id %}">View details</a>
+                                        {% if can_edit_inventory %}<a href="{% url 'inventory:vendor-edit' vendor.id %}">Edit vendor</a>{% endif %}
+                                    </div>
+                                </details>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td class="inventory-empty" colspan="6">No vendors match these filters.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <table class="inventory-table">
+                    <thead><tr><th>PO Number</th><th>Vendor</th><th>Order Date</th><th>Expected Date</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                    {% for purchase_order in rows %}
+                        <tr>
+                            <td class="cell-id">{{ purchase_order.id }}</td>
+                            <td class="cell-strong">{{ purchase_order.vendor }}</td>
+                            <td class="cell-muted">{{ purchase_order.order_date }}</td>
+                            <td class="cell-muted">{{ purchase_order.expected_date }}</td>
+                            <td><span class="inventory-badge {{ purchase_order.status_style }}">{{ purchase_order.status_label }}</span></td>
+                            <td class="inventory-actions-cell">
+                                <details class="inventory-menu">
+                                    <summary aria-label="Actions for {{ purchase_order.id }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
+                                    <div class="inventory-menu__items">
+                                        <a href="{% url 'inventory:purchase-order-detail' purchase_order.id %}">View details</a>
+                                        {% if can_edit_inventory %}
+                                            <form method="post" action="{% url 'inventory:purchase-order-status' purchase_order.id %}">
+                                                {% csrf_token %}<input type="hidden" name="status" value="RECEIVED"><button type="submit">Mark as received</button>
+                                            </form>
+                                            <form method="post" action="{% url 'inventory:purchase-order-status' purchase_order.id %}">
+                                                {% csrf_token %}<input type="hidden" name="status" value="PENDING"><button type="submit">Mark as pending</button>
+                                            </form>
+                                            <form method="post" action="{% url 'inventory:purchase-order-status' purchase_order.id %}">
+                                                {% csrf_token %}<input type="hidden" name="status" value="CLOSED"><button type="submit">Mark as closed</button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </details>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td class="inventory-empty" colspan="6">No purchase orders match these filters.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
         </div>
-        <select class="field-select" id="vendorStatusFilter">
-          <option value="">All Vendors</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
 
-      <div class="table-wrap">
-        <table class="data-table" id="vendorsTable">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>NAME</th>
-              <th>CONTACT</th>
-              <th>EMAIL</th>
-              <th>STATUS</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for vd in vendors %}
-            <tr data-status="{% if vd.is_active %}active{% else %}inactive{% endif %}">
-              <td class="cell-id">{{ vd.id }}</td>
-              <td class="cell-strong">{{ vd.name }}</td>
-              <td class="cell-muted">{{ vd.contact_name|default:"-" }}</td>
-              <td class="cell-muted">{{ vd.email|default:"-" }}</td>
-              <td><span class="badge {% if vd.is_active %}badge-success{% else %}badge-secondary{% endif %}">{% if vd.is_active %}Active{% else %}Inactive{% endif %}</span></td>
-              <td class="row-menu">
-                <button class="row-menu__btn" type="button" data-menu-toggle>
-                  <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
-                </button>
-                <div class="row-menu__dropdown">
-                  <a href="#" class="action-view">View details</a>
-                  <a href="#" class="action-edit-vendor">Edit vendor</a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-footer">
-        <span class="table-footer__count">Showing 1 to {{ vendors|length }} of {{ vendors|length }} entries</span>
-        <div class="table-footer__nav">
-          <button class="btn btn-outline">Previous</button>
-          <button class="btn btn-outline">Next</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== PURCHASE ORDERS ===================== -->
-  <section class="tab-panel" data-panel="purchase-orders">
-    <div class="card">
-      <div class="card-toolbar">
-        <div class="field-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="poSearch" placeholder="Search by PO number...">
-        </div>
-        <select class="field-select" id="poStatusFilter">
-          <option value="">All Statuses</option>
-          <option value="PENDING">Pending</option>
-          <option value="RECEIVED">Received</option>
-        </select>
-      </div>
-
-      <div class="table-wrap">
-        <table class="data-table" id="poTable">
-          <thead>
-            <tr>
-              <th>PO NUMBER</th>
-              <th>VENDOR</th>
-              <th>ORDER DATE</th>
-              <th>EXPECTED DATE</th>
-              <th>STATUS</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for po in purchase_orders %}
-            <tr data-status="{{ po.status }}">
-              <td class="cell-id">{{ po.id }}</td>
-              <td class="cell-strong">{{ po.vendor }}</td>
-              <td class="cell-muted">{{ po.order_date }}</td>
-              <td class="cell-muted">{{ po.expected_date }}</td>
-              <td><span class="badge {{ po.status_style }}">{{ po.status_label }}</span></td>
-              <td class="row-menu">
-                <button class="row-menu__btn" type="button" data-menu-toggle>
-                  <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
-                </button>
-                <div class="row-menu__dropdown">
-                  <a href="#" class="action-view">View details</a>
-                  <a href="#" class="action-received">Mark as received</a>
-                  <a href="#" class="action-pending">Mark as pending</a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-footer">
-        <span class="table-footer__count">Showing 1 to {{ purchase_orders|length }} of {{ purchase_orders|length }} entries</span>
-        <div class="table-footer__nav">
-          <button class="btn btn-outline">Previous</button>
-          <button class="btn btn-outline">Next</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-{% endblock %}
-
-{% block modals %}
-  <!-- Add Vehicle Modal -->
-  <div class="modal-overlay" id="addVehicleModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Add Vehicle</h2>
-        <button class="modal-close" type="button" data-modal-close>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <form id="addVehicleForm">
-        <div class="modal-body">
-          <div class="form-group span-2">
-            <label for="vin">VIN <span class="hint">(17 characters)</span></label>
-            <input type="text" id="vin" name="vin" maxlength="17" placeholder="e.g. 1G1RC6647BU123456" required>
-          </div>
-          <div class="form-group">
-            <label for="make">Make</label>
-            <input type="text" id="make" name="make" placeholder="e.g. Toyota" required>
-          </div>
-          <div class="form-group">
-            <label for="model">Model</label>
-            <input type="text" id="model" name="model" placeholder="e.g. Corolla" required>
-          </div>
-          <div class="form-group">
-            <label for="year">Year</label>
-            <input type="number" id="year" name="year" min="1980" max="2100" placeholder="2024" required>
-          </div>
-          <div class="form-group">
-            <label for="trim">Trim</label>
-            <input type="text" id="trim" name="trim" placeholder="e.g. LE">
-          </div>
-          <div class="modal-footer" style="grid-column: span 2; border:none; padding: 10px 0 0 0;">
-            <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Vehicle</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Edit Vehicle Modal -->
-  <div class="modal-overlay" id="editVehicleModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Edit Vehicle</h2>
-        <button class="modal-close" type="button" data-modal-close>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <form id="editVehicleForm">
-        <div class="modal-body">
-          <div class="form-group span-2">
-            <label for="edit_vin">VIN</label>
-            <input type="text" id="edit_vin" name="vin" required>
-          </div>
-          <div class="form-group">
-            <label for="edit_make">Make</label>
-            <input type="text" id="edit_make" name="make" required>
-          </div>
-          <div class="form-group">
-            <label for="edit_model">Model</label>
-            <input type="text" id="edit_model" name="model" required>
-          </div>
-          <div class="modal-footer" style="grid-column: span 2; border:none; padding: 10px 0 0 0;">
-            <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-primary">Update Vehicle</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Edit Vendor Modal -->
-  <div class="modal-overlay" id="editVendorModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Edit Vendor</h2>
-        <button class="modal-close" type="button" data-modal-close>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <form id="editVendorForm">
-        <div class="modal-body">
-          <div class="form-group span-2">
-            <label for="edit_vendor_name">Vendor Name</label>
-            <input type="text" id="edit_vendor_name" name="name" required>
-          </div>
-          <div class="form-group">
-            <label for="edit_vendor_contact">Contact Person</label>
-            <input type="text" id="edit_vendor_contact" name="contact">
-          </div>
-          <div class="form-group">
-            <label for="edit_vendor_email">Email</label>
-            <input type="email" id="edit_vendor_email" name="email">
-          </div>
-          <div class="modal-footer" style="grid-column: span 2; border:none; padding: 10px 0 0 0;">
-            <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-primary">Update Vendor</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-
-  var currentRow = null; // to store the immediate row
-
-  /* ---------------- Tabs Navigation ---------------- */
-  var tabs = document.querySelectorAll('.tab');
-  var panels = document.querySelectorAll('.tab-panel');
-
-  function switchTab(targetTabName) {
-    tabs.forEach(function (t) { t.classList.remove('is-active'); });
-    panels.forEach(function (p) { p.classList.remove('is-active'); });
-
-    var activeTab = document.querySelector('.tab[data-tab="' + targetTabName + '"]');
-    var activePanel = document.querySelector('[data-panel="' + targetTabName + '"]');
-
-    if (activeTab) activeTab.classList.add('is-active');
-    if (activePanel) activePanel.classList.add('is-active');
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  tabs.forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      switchTab(tab.dataset.tab);
-    });
-  });
-
-  /* ---------------- Next & Previous Tab Navigation Buttons ---------------- */
-  var tabOrder = ['vehicles', 'vendors', 'purchase-orders'];
-
-  document.querySelectorAll('.table-footer__nav').forEach(function (navContainer) {
-    var prevBtn = navContainer.querySelector('.btn-outline:first-child');
-    var nextBtn = navContainer.querySelector('.btn-outline:last-child');
-
-    if (prevBtn && nextBtn) {
-      prevBtn.removeAttribute('disabled');
-      prevBtn.removeAttribute('aria-disabled');
-      nextBtn.removeAttribute('disabled');
-      nextBtn.removeAttribute('aria-disabled');
-
-      prevBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        var currentActiveTab = document.querySelector('.tab.is-active');
-        if (currentActiveTab) {
-          var currentIndex = tabOrder.indexOf(currentActiveTab.dataset.tab);
-          if (currentIndex > 0) {
-            switchTab(tabOrder[currentIndex - 1]);
-          }
-        }
-      });
-
-      nextBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        var currentActiveTab = document.querySelector('.tab.is-active');
-        if (currentActiveTab) {
-          var currentIndex = tabOrder.indexOf(currentActiveTab.dataset.tab);
-          if (currentIndex < tabOrder.length - 1) {
-            switchTab(tabOrder[currentIndex + 1]);
-          }
-        }
-      });
-    }
-  });
-
-  /* ---------------- Vehicles Filters ---------------- */
-  var vehicleSearch = document.getElementById('vehicleSearch');
-  var statusFilter = document.getElementById('statusFilter');
-
-  function applyVehicleFilters() {
-    var vehicleRows = document.querySelectorAll('#vehiclesTable tbody tr');
-    var term = (vehicleSearch && vehicleSearch.value ? vehicleSearch.value : '').trim().toLowerCase();
-    var status = statusFilter ? statusFilter.value : '';
-
-    vehicleRows.forEach(function (row) {
-      var rowText = row.textContent.toLowerCase();
-      var vinMatch = row.dataset.vin ? row.dataset.vin.toLowerCase().indexOf(term) !== -1 : true;
-      var textMatch = !term || rowText.indexOf(term) !== -1;
-      var matchesTerm = vinMatch || textMatch;
-      var matchesStatus = !status || (row.dataset.status && row.dataset.status === status);
-      row.style.display = (matchesTerm && matchesStatus) ? '' : 'none';
-    });
-  }
-
-  if (vehicleSearch) vehicleSearch.addEventListener('input', applyVehicleFilters);
-  if (statusFilter) statusFilter.addEventListener('change', applyVehicleFilters);
-
-  /* ---------------- Vendors Filters ---------------- */
-  var vendorSearch = document.getElementById('vendorSearch');
-  var vendorStatusFilter = document.getElementById('vendorStatusFilter');
-
-  function applyVendorFilters() {
-    var vendorRows = document.querySelectorAll('#vendorsTable tbody tr');
-    var term = (vendorSearch && vendorSearch.value ? vendorSearch.value : '').trim().toLowerCase();
-    var status = vendorStatusFilter ? vendorStatusFilter.value.toLowerCase() : '';
-
-    vendorRows.forEach(function (row) {
-      var rowText = row.textContent.toLowerCase();
-      var matchesTerm = !term || rowText.indexOf(term) !== -1;
-      var rowStatus = row.dataset.status ? row.dataset.status.toLowerCase() : '';
-      var matchesStatus = !status || rowStatus === status;
-      row.style.display = (matchesTerm && matchesStatus) ? '' : 'none';
-    });
-  }
-
-  if (vendorSearch) vendorSearch.addEventListener('input', applyVendorFilters);
-  if (vendorStatusFilter) vendorStatusFilter.addEventListener('change', applyVendorFilters);
-
-  /* ---------------- Purchase Orders Filters ---------------- */
-  var poSearch = document.getElementById('poSearch');
-  var poStatusFilter = document.getElementById('poStatusFilter');
-
-  function applyPOFilters() {
-    var poRows = document.querySelectorAll('#poTable tbody tr');
-    var term = (poSearch && poSearch.value ? poSearch.value : '').trim().toLowerCase();
-    var status = poStatusFilter ? poStatusFilter.value.trim() : '';
-
-    poRows.forEach(function (row) {
-      var rowText = row.textContent.toLowerCase();
-      var matchesTerm = !term || rowText.indexOf(term) !== -1;
-      var rowStatus = row.dataset.status ? row.dataset.status.trim() : '';
-      var matchesStatus = !status || rowStatus === status;
-      row.style.display = (matchesTerm && matchesStatus) ? '' : 'none';
-    });
-  }
-
-  if (poSearch) poSearch.addEventListener('input', applyPOFilters);
-  if (poStatusFilter) poStatusFilter.addEventListener('change', applyPOFilters);
-
-  /* ---------------- Modals General Handlers ---------------- */
-  var addModal = document.getElementById('addVehicleModal');
-  var editVehicleModal = document.getElementById('editVehicleModal');
-  var editVendorModal = document.getElementById('editVendorModal');
-
-  function closeModal(modal) {
-    if (modal) modal.classList.remove('is-open');
-  }
-
-  // Open Add Vehicle
-  var openAddBtn = document.getElementById('openAddVehicle');
-  if (openAddBtn) {
-    openAddBtn.addEventListener('click', function() {
-      if (addModal) addModal.classList.add('is-open');
-    });
-  }
-
-  // Close buttons and backdrop
-  document.querySelectorAll('[data-modal-close]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      closeModal(addModal);
-      closeModal(editVehicleModal);
-      closeModal(editVendorModal);
-    });
-  });
-
-  window.addEventListener('click', function (event) {
-    if (event.target === addModal) closeModal(addModal);
-    if (event.target === editVehicleModal) closeModal(editVehicleModal);
-    if (event.target === editVendorModal) closeModal(editVendorModal);
-  });
-
-  /* ---------------- Row Dropdown Menus & Action Handlers ---------------- */
-  document.addEventListener('click', function (event) {
-    var toggle = event.target.closest('[data-menu-toggle]');
-    var actionTarget = event.target.closest('.row-menu__dropdown a, .row-menu__dropdown button');
-
-    if (toggle) {
-      event.stopPropagation();
-      var dropdown = toggle.nextElementSibling;
-      
-      document.querySelectorAll('.row-menu__dropdown').forEach(function (menu) {
-        if (menu !== dropdown) menu.classList.remove('is-open');
-      });
-      
-      if (dropdown) dropdown.classList.toggle('is-open');
-      return;
-    }
-
-    if (actionTarget) {
-      event.preventDefault();
-      event.stopPropagation();
-
-      var row = actionTarget.closest('tr');
-      var cellId = row ? row.querySelector('.cell-id') : null;
-      var itemId = cellId ? cellId.textContent.trim() : '';
-
-      // Edit Vehicle Action
-      if (actionTarget.classList.contains('action-edit-vehicle')) {
-        currentRow = row; 
-        var vinCell = row.querySelectorAll('td')[1];
-        var vehicleCell = row.querySelectorAll('td')[2];
-        
-        if (document.getElementById('edit_vin')) document.getElementById('edit_vin').value = vinCell ? vinCell.textContent.trim() : '';
-        
-        var vehicleParts = vehicleCell ? vehicleCell.textContent.trim().split(' ') : [];
-        if (document.getElementById('edit_make') && vehicleParts.length > 1) {
-          document.getElementById('edit_make').value = vehicleParts[1];
-        }
-        if (document.getElementById('edit_model') && vehicleParts.length > 2) {
-          document.getElementById('edit_model').value = vehicleParts.slice(2).join(' ');
-        }
-
-        if (editVehicleModal) editVehicleModal.classList.add('is-open');
-      }
-      // Edit Vendor Action
-      else if (actionTarget.classList.contains('action-edit-vendor')) {
-        currentRow = row; 
-        var nameCell = row.querySelectorAll('td')[1];
-        var contactCell = row.querySelectorAll('td')[2];
-        var emailCell = row.querySelectorAll('td')[3];
-        if (document.getElementById('edit_vendor_name')) document.getElementById('edit_vendor_name').value = nameCell ? nameCell.textContent.trim() : '';
-        if (document.getElementById('edit_vendor_contact')) document.getElementById('edit_vendor_contact').value = contactCell && contactCell.textContent.trim() !== '-' ? contactCell.textContent.trim() : '';
-        if (document.getElementById('edit_vendor_email')) document.getElementById('edit_vendor_email').value = emailCell && emailCell.textContent.trim() !== '-' ? emailCell.textContent.trim() : '';
-        if (editVendorModal) editVendorModal.classList.add('is-open');
-      }
-      // Remove Action
-      else if (actionTarget.classList.contains('action-remove')) {
-        if (confirm('Are you sure you want to remove item ' + itemId + '?')) {
-          if (row) row.remove();
-        }
-      }
-      // Status Updates for PO
-      else if (actionTarget.classList.contains('action-received') || actionTarget.classList.contains('action-pending')) {
-        var badge = row ? row.querySelector('.badge') : null;
-        if (badge) {
-          if (actionTarget.classList.contains('action-received')) {
-            badge.textContent = 'Received';
-            badge.style.backgroundColor = '#f0fdf4';
-            badge.style.color = '#15803d';
-            row.dataset.status = 'RECEIVED';
-          } else {
-            badge.textContent = 'Pending';
-            badge.style.backgroundColor = '#fff7ed';
-            badge.style.color = '#c2410c';
-            row.dataset.status = 'PENDING';
-          }
-        }
-      }
-      else if (actionTarget.classList.contains('action-view')) {
-        alert('Viewing details for ID: ' + itemId);
-      }
-
-      document.querySelectorAll('.row-menu__dropdown').forEach(function (menu) {
-        menu.classList.remove('is-open');
-      });
-      return;
-    }
-
-    if (!event.target.closest('.row-menu')) {
-      document.querySelectorAll('.row-menu__dropdown').forEach(function (menu) {
-        menu.classList.remove('is-open');
-      });
-    }
-  });
-
-  // Forms Submissions
-  var addForm = document.getElementById('addVehicleForm');
-  if (addForm) {
-    addForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      closeModal(addModal);
-      addForm.reset();
-    });
-  }
-
-  // Update vehicle data
-  var editVehForm = document.getElementById('editVehicleForm');
-  if (editVehForm) {
-    editVehForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      closeModal(editVehicleModal);
-
-      if (currentRow) {
-        var newVin = document.getElementById('edit_vin').value;
-        var newMake = document.getElementById('edit_make').value;
-        var newModel = document.getElementById('edit_model').value;
-
-        var cells = currentRow.querySelectorAll('td');
-        if (cells[1]) cells[1].textContent = newVin;
-        if (cells[2]) {
-          var currentText = cells[2].textContent.trim();
-          var yearMatch = currentText.match(/^\d{4}/);
-          var yearPrefix = yearMatch ? yearMatch[0] + ' ' : '';
-          cells[2].textContent = yearPrefix + newMake + ' ' + newModel;
-        }
-        currentRow.dataset.vin = newVin.toLowerCase();
-      }
-
-      alert('Vehicle updated successfully!');
-    });
-  }
-
-  // Update vendor data
-  var editVendForm = document.getElementById('editVendorForm');
-  if (editVendForm) {
-    editVendForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      closeModal(editVendorModal);
-
-      if (currentRow) {
-        var newName = document.getElementById('edit_vendor_name').value;
-        var newContact = document.getElementById('edit_vendor_contact').value;
-        var newEmail = document.getElementById('edit_vendor_email').value;
-
-        var cells = currentRow.querySelectorAll('td');
-        if (cells[1]) cells[1].textContent = newName;
-        if (cells[2]) cells[2].textContent = newContact ? newContact : '-';
-        if (cells[3]) cells[3].textContent = newEmail ? newEmail : '-';
-      }
-
-      alert('Vendor updated successfully!');
-    });
-  }
-
-});
-
-
-
-</script>
+        <footer class="inventory-table-footer">
+            <span>Showing {{ display_start }}–{{ display_end }} of {{ result_count }} entries</span>
+            <nav class="inventory-pagination" aria-label="Table pages">
+                {% if has_previous %}
+                    <a class="inventory-btn inventory-btn--outline" href="{% url 'inventory:inventory' %}?tab={{ active_tab }}&amp;search={{ search_query|urlencode }}&amp;status={{ selected_status|urlencode }}&amp;page={{ previous_page }}">Previous</a>
+                {% else %}
+                    <span class="inventory-btn inventory-btn--outline is-disabled" aria-disabled="true">Previous</span>
+                {% endif %}
+                <span class="inventory-page-number">Page {{ current_page }}</span>
+                {% if has_next %}
+                    <a class="inventory-btn inventory-btn--outline" href="{% url 'inventory:inventory' %}?tab={{ active_tab }}&amp;search={{ search_query|urlencode }}&amp;status={{ selected_status|urlencode }}&amp;page={{ next_page }}">Next</a>
+                {% else %}
+                    <span class="inventory-btn inventory-btn--outline is-disabled" aria-disabled="true">Next</span>
+                {% endif %}
+            </nav>
+        </footer>
+    </section>
+</div>
 {% endblock %}
