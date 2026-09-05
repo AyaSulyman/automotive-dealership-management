@@ -197,3 +197,42 @@ class VehicleValuation(models.Model):
 
     def __str__(self):
         return f"Valuation ${self.value} for vehicle {self.vehicle_id}"
+
+
+class Document(models.Model):
+    """
+    A generic file attachment (API spec section 6). related_type / related_id
+    are loose references (VEHICLE/CUSTOMER/INVOICE) so one model serves all
+    three domains — the same pattern Person 2 uses for its loose numeric IDs
+    across apps.
+    """
+
+    RELATED_TYPE_CHOICES = [
+        ("VEHICLE", "Vehicle"),
+        ("CUSTOMER", "Customer"),
+        ("INVOICE", "Invoice"),
+    ]
+    DOC_TYPE_CHOICES = [
+        ("TITLE", "Title"),
+        ("ID", "ID"),
+        ("CONTRACT", "Contract"),
+        ("INSPECTION", "Inspection"),
+        ("BILL_OF_SALE", "Bill of Sale"),
+    ]
+
+    related_type = models.CharField(max_length=20, choices=RELATED_TYPE_CHOICES)
+    related_id = models.IntegerField()
+    doc_type = models.CharField(max_length=20, choices=DOC_TYPE_CHOICES)
+    file = models.FileField(upload_to="documents/%Y/%m/")
+    original_filename = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="uploaded_documents",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.doc_type} for {self.related_type} #{self.related_id}"

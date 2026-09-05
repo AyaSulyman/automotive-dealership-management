@@ -12,4 +12,6 @@ urlpatterns = [
     path("vehicles/<int:pk>/media", views.VehicleMediaCreateView.as_view(), name="vehicle-media-create"),
     path("vehicles/<int:pk>/media/<int:media_id>", views.VehicleMediaDeleteView.as_view(), name="vehicle-media-delete"),
     path("vehicles/<int:pk>/valuation", views.VehicleValuationCreateView.as_view(), name="vehicle-valuation-create"),
+    path("documents", views.DocumentListCreateView.as_view(), name="document-list-create"),
+    path("documents/<int:pk>", views.DocumentDeleteView.as_view(), name="document-delete"),
 ]

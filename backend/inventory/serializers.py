@@ -1,7 +1,7 @@
 """Serializer for Person 1's inventory domain."""
 from rest_framework import serializers
 
-from .models import PurchaseOrder, Vehicle, VehicleMedia, VehicleValuation, Vendor
+from .models import Document, PurchaseOrder, Vehicle, VehicleMedia, VehicleValuation, Vendor
 
 
 class VendorSerializer(serializers.ModelSerializer):
@@ -116,3 +116,13 @@ class VehicleCreateSerializer(serializers.ModelSerializer):
         vehicle.compute_cost_basis()
         vehicle.save()
         return vehicle
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = [
+            "id", "related_type", "related_id", "doc_type",
+            "file", "original_filename", "uploaded_by", "created_at",
+        ]
+        read_only_fields = ["id", "original_filename", "uploaded_by", "created_at"]

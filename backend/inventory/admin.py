@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PurchaseOrder, Vehicle, VehicleMedia, VehicleValuation, Vendor
+from .models import Document, PurchaseOrder, Vehicle, VehicleMedia, VehicleValuation, Vendor
 
 
 @admin.register(Vendor)
@@ -33,3 +33,10 @@ class VehicleMediaAdmin(admin.ModelAdmin):
 class VehicleValuationAdmin(admin.ModelAdmin):
     list_display = ("vehicle", "value", "source", "appraised_by", "created_at")
     list_filter = ("source",)
+
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = ("related_type", "related_id", "doc_type", "original_filename", "created_at")
+    list_filter = ("doc_type", "related_type")
+    search_fields = ("original_filename",)

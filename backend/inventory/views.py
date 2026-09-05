@@ -12,9 +12,9 @@ from rest_framework.response import Response
 
 from common.permissions import IsAdmin, IsAdminOrAgent, has_role
 
-from .models import PurchaseOrder, Vehicle, VehicleMedia, VehicleValuation, Vendor
+from .models import Document, PurchaseOrder, Vehicle, VehicleMedia, VehicleValuation, Vendor
 from .serializers import (
-    PurchaseOrderCreateSerializer, PurchaseOrderSerializer, VehicleCreateSerializer,
+    DocumentSerializer, PurchaseOrderCreateSerializer, PurchaseOrderSerializer, VehicleCreateSerializer,
     VehicleMediaSerializer, VehicleSerializer, VehicleValuationSerializer, VendorSerializer,
 )
 
@@ -292,3 +292,54 @@ class VehicleValuationCreateView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         valuation = serializer.save(vehicle=vehicle, appraised_by=request.user)
         return Response(VehicleValuationSerializer(valuation).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    get=extend_schema(tags=["Documents"], summary="List documents (?related_type=&related_id=)"),
+    post=extend_schema(tags=["Documents"], summary="Upload a document (multipart)",
+                       request=DocumentSerializer, responses={201: DocumentSerializer}),
+)
+class DocumentListCreateView(generics.ListCreateAPIView):
+    queryset = Document.objects.select_related("uploaded_by").order_by("-created_at")
+    serializer_class = DocumentSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated()]
+        return [IsAdminOrAgent()]
+
+    def get_queryset(self):
+        qs = Document.objects.select_related("uploaded_by").order_by("-created_at")
+        params = self.request.query_params
+        related_type = params.get("related_type")
+        if related_type:
+            qs = qs.filter(related_type=related_type)
+        related_id = params.get("related_id")
+        if related_id:
+            qs = qs.filter(related_id=related_id)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        uploaded = request.FILES.get("file")
+        serializer = DocumentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document = serializer.save(
+            uploaded_by=request.user,
+            original_filename=uploaded.name if uploaded else "",
+        )
+        return Response(DocumentSerializer(document).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    delete=extend_schema(tags=["Documents"], summary="Delete a document"),
+)
+class DocumentDeleteView(generics.DestroyAPIView):
+    queryset = Document.objects.all()
+    serializer_class = DocumentSerializer
+    permission_classes = [IsAdminOrAgent]
+
+    def destroy(self, request, *args, **kwargs):
+        document = self.get_object()
+        document.delete()
+        return Response({"message": "Document deleted."}, status=status.HTTP_200_OK)
