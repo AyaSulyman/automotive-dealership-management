@@ -10,14 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
-import os
 from pathlib import Path
-
-from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -32,13 +28,6 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
-def env_flag(name, default=False):
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -49,7 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'inventory',
-    'crm_finance',
 ]
 
 MIDDLEWARE = [
@@ -124,31 +112,13 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS and images)
+# Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
-
-
-# Django-to-FastAPI integration.
-# Example: ADMS_API_BASE_URL=http://127.0.0.1:8001/api/v1
-ADMS_API_BASE_URL = os.environ.get('ADMS_API_BASE_URL', '').rstrip('/')
-ADMS_API_TIMEOUT = os.environ.get('ADMS_API_TIMEOUT', '10')
-ADMS_PREVIEW_MODE = env_flag(
-    'ADMS_PREVIEW_MODE',
-    default=not bool(ADMS_API_BASE_URL),
-)
-# Kept as an alias so existing dashboard configuration remains compatible.
-DASHBOARD_PREVIEW_MODE = ADMS_PREVIEW_MODE
-DASHBOARD_PREVIEW_ROLE = os.environ.get(
-    'DASHBOARD_PREVIEW_ROLE',
-    'admin',
-).strip().lower()
-LOGIN_URL = '/login/'
-LOGIN_SUCCESS_URL = '/dashboard/'
 
 
 # Email
