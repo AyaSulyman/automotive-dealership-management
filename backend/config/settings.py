@@ -48,8 +48,9 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
 
-    # Local apps — Person 1 (Omar): accounts & roles
+    # Local apps — Person 1 (Omar): accounts & roles, inventory (vendors/POs/vehicles/documents)
     'accounts',
+    'inventory',
     # Local apps — Person 2 (Aya): sales/deal lifecycle, payments & financing, reporting
     'sales',
     'payments',
