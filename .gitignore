@@ -13,7 +13,9 @@ venv/
 # Django
 *.log
 db.sqlite3
+test_db.sqlite3
 media/
+**/config/local_test_settings.py
 
 # IDE
 .vscode/
