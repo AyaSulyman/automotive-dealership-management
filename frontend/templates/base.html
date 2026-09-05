@@ -2,31 +2,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AutoSource automotive dealership management system.">
-    <title>{% block title %}AutoSource ADMS{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'shared/css/app-shell.css' %}">
-    {% block page_styles %}{% endblock %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AutoSource{% endblock %} | Dealership Management</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {% block extra_css %}{% endblock %}
 </head>
-<body class="app-body">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <input id="sidebar-state" class="sidebar-state" type="checkbox" aria-label="Toggle navigation">
-    <label class="sidebar-overlay" for="sidebar-state" aria-label="Close navigation"></label>
+<body>
+  <div class="app-shell">
     {% include "partials/sidebar.html" %}
 
-    <div class="app-frame">
-        {% include "partials/topbar.html" %}
-        <main id="main-content" class="page-content" tabindex="-1">
-            {% if messages %}
-                <div class="flash-messages" aria-live="polite">
-                    {% for message in messages %}
-                        <div class="flash-message flash-message--{{ message.tags|default:'info' }}" role="status">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-            {% block content %}{% endblock %}
-        </main>
+    <div class="main">
+      {% include "partials/topbar.html" %}
+
+      <main class="page">
+        {% block content %}{% endblock %}
+      </main>
     </div>
+  </div>
+
+  {% block modals %}{% endblock %}
+
+  <script src="{% static 'js/app.js' %}"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
