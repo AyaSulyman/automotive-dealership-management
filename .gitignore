@@ -13,7 +13,14 @@ venv/
 # Django
 *.log
 db.sqlite3
+test_db.sqlite3
 media/
+**/config/local_test_settings.py
+
+# Dev server runtime artifacts
+*.pid
+server.err
+server.out
 
 # IDE
 .vscode/

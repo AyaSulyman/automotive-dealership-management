@@ -40,6 +40,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'django_filters',
+    'drf_spectacular',
+
+    # Local apps — Person 1 (Omar): accounts & roles, inventory (vendors/POs/vehicles/documents), customers
+    'accounts',
+    'inventory',
+    'customers',
+    # Local apps — Person 2 (Aya): sales/deal lifecycle, payments & financing, reporting
+    'sales',
+    'payments',
+    'reports',
 ]
 
 MIDDLEWARE = [
@@ -121,6 +137,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files (vehicle photos/videos, customer documents) — served by
+# Django's static() helper in DEBUG mode (see config/urls.py).
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -130,3 +151,106 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# -----------------------------------------------------------------------
+# Django REST Framework
+# API conventions (see ADMS_API_Specification.md):
+#   - Base URL: /api/v1
+#   - Auth: Bearer JWT
+#   - Pagination: { "count", "next", "previous", "results": [...] }
+#   - Errors: { "error": { "code", "message", "fields": {...} } }
+# -----------------------------------------------------------------------
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': (
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ),
+    'EXCEPTION_HANDLER': 'common.exceptions.standard_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Disabled: DRF's built-in `?format=` override collides with the API
+    # spec's own use of `?format=csv` on /reports/payments/export (DRF
+    # would try to content-negotiate a "csv" renderer and 404/406 instead
+    # of reaching the view). No other endpoint in the spec relies on DRF's
+    # format-suffix switching, so this is safe to turn off globally.
+    'URL_FORMAT_OVERRIDE': None,
+}
+
+# -----------------------------------------------------------------------
+# drf-spectacular (OpenAPI schema + Swagger UI / ReDoc)
+# Served at /api/v1/schema, /api/v1/docs (Swagger UI), /api/v1/redoc
+# See config/urls.py for the mounted routes.
+# -----------------------------------------------------------------------
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AutoSource ADMS API',
+    'DESCRIPTION': (
+        'Automotive Dealership Management System API.\n\n'
+        'Covers both people\'s scopes. Person 1: Authentication, Users & '
+        'Roles, Vendors, Purchase Orders, Vehicles, Documents, Customers. '
+        'Person 2: Trade-Ins, Sales Invoices / Deals, Tax Rules, Payments, '
+        'Payment Schedules, Financing Accounts, Statements, Dashboard, '
+        'Finance & Reports, and the Audit Log.'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': '/api/v1/',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SORT_OPERATIONS': False,
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'Login, token refresh/rotation, logout, current user.'},
+        {'name': 'Users & Roles', 'description': 'Admin-managed users and the admin/agent/accountant roles.'},
+        {'name': 'Vendors', 'description': 'Vehicle suppliers.'},
+        {'name': 'Purchase Orders', 'description': 'Stock orders placed with vendors (PENDING > RECEIVED > CLOSED).'},
+        {'name': 'Vehicles', 'description': 'Inventory units, cost basis, media, valuations.'},
+        {'name': 'Documents', 'description': 'Attachments for vehicles, customers, and invoices.'},
+        {'name': 'Customers', 'description': 'Customer records, consolidated history, balance, statements.'},
+        {'name': 'Trade-Ins', 'description': 'Trade-in appraisal and crediting.'},
+        {'name': 'Tax Rules', 'description': 'Admin-configured tax rates.'},
+        {'name': 'Sales Invoices', 'description': 'The deal / invoice lifecycle.'},
+        {'name': 'Payments', 'description': 'Recording payments and receipts.'},
+        {'name': 'Payment Schedules', 'description': 'Installment schedules.'},
+        {'name': 'Financing Accounts', 'description': 'Financing agreements (1:1 with an invoice).'},
+        {'name': 'Statements', 'description': 'Customer statements.'},
+        {'name': 'Dashboard', 'description': 'Aggregate KPI cards for the staff dashboard.'},
+        {'name': 'Finance & Reports', 'description': 'Finance overview and per-vehicle summaries.'},
+        {'name': 'Audit Log', 'description': 'Internal audit trail (admin-only).'},
+    ],
+    # Several models have a "status" field with different choice sets
+    # (SalesInvoice, PaymentSchedule, FinancingAccount, AuditLog.action) --
+    # name each enum explicitly so Swagger doesn't auto-generate ambiguous
+    # names like "StatusDdfEnum".
+    'ENUM_NAME_OVERRIDES': {
+        'SalesInvoiceStatusEnum': 'sales.models.SalesInvoice.STATUS_CHOICES',
+        'PaymentScheduleStatusEnum': 'payments.models.PaymentSchedule.STATUS_CHOICES',
+        'FinancingAccountStatusEnum': 'payments.models.FinancingAccount.STATUS_CHOICES',
+        'VehicleStatusEnum': 'inventory.models.Vehicle.STATUS_CHOICES',
+        'VehicleConditionEnum': 'inventory.models.Vehicle.CONDITION_CHOICES',
+        'PurchaseOrderStatusEnum': 'inventory.models.PurchaseOrder.STATUS_CHOICES',
+        'VehicleMediaTypeEnum': 'inventory.models.VehicleMedia.MEDIA_TYPE_CHOICES',
+        'VehicleValuationSourceEnum': 'inventory.models.VehicleValuation.SOURCE_CHOICES',
+    },
+}
+
+from datetime import timedelta  # noqa: E402
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+}
+
+# Role checks (admin / agent / accountant) read from Person 1's
+# accounts.UserProfile.role with a Django Groups fallback — see
+# common/permissions.py. Superuser always passes every role check.
