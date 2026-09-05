@@ -1,6 +1,6 @@
 from copy import deepcopy
 import re
-
+from .forms import DealForm, VendorForm, PurchaseOrderStatusForm  
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -824,3 +824,187 @@ def purchase_order_status_page(request, purchase_order_id):
             return auth_response
         messages.error(request, error.message)
     return HttpResponseRedirect(_inventory_url("purchase-orders"))
+
+
+@require_http_methods(["GET", "POST"])
+def deal_add_page(request):
+    user, preview_mode, response = _page_access(request)
+    if response:
+        return response
+    denied = _require_edit_role(request, user, "deals")
+    if denied:
+        return denied
+
+    form = DealForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        payload = form.api_payload()
+        if preview_mode:
+            deals = _preview_collection(request, "deals")
+            deals.append(
+                {
+                    "id": _next_preview_id(deals, "DL-", 100),
+                    **payload,
+                }
+            )
+            _save_preview_collection(request, "deals", deals)
+            messages.success(request, "Deal created in preview mode.")
+            return HttpResponseRedirect(_inventory_url("deals"))
+        try:
+            service.create_deal(auth_service.access_token(request), payload)
+            messages.success(request, "Deal created successfully.")
+            return HttpResponseRedirect(_inventory_url("deals"))
+        except APIError as error:
+            auth_response = _api_redirect_if_auth_error(request, error)
+            if auth_response:
+                return auth_response
+            _add_api_errors(form, error)
+
+    return render(
+        request,
+        "sales/create_deal.html",
+        _form_context(
+            user,
+            form,
+            title="Create New Deal",
+            description="Complete the steps below to finalize the sale and optional trade-in.",
+            tab="deals",
+            submit_label="Finalize Deal",
+        ),
+    )
+
+
+def _deal_initial(deal):
+    return {
+        "customer_id": deal.get("customer_id", ""),
+        "vehicle_id": deal.get("vehicle_id", ""),
+        "discount": deal.get("discount", ""),
+        "trade_in_enabled": bool(deal.get("trade_in_enabled", False)),
+        "trade_in_vehicle_id": deal.get("trade_in_vehicle_id", ""),
+        "appraised_value": deal.get("appraised_value", ""),
+    }
+
+
+@require_http_methods(["GET", "POST"])
+def deal_edit_page(request, deal_id):
+    user, preview_mode, response = _page_access(request)
+    if response:
+        return response
+    denied = _require_edit_role(request, user, "deals")
+    if denied:
+        return denied
+
+    deal = None
+    if request.method == "GET":
+        if preview_mode:
+            deal = _find_preview_item(request, "deals", deal_id)
+        else:
+            try:
+                deal = unwrap(
+                    service.get_deal(auth_service.access_token(request), deal_id)
+                )
+            except APIError as error:
+                if error.status_code == 404:
+                    raise Http404("Deal not found") from error
+                auth_response = _api_redirect_if_auth_error(request, error)
+                if auth_response:
+                    return auth_response
+                messages.error(request, error.message)
+                return HttpResponseRedirect(_inventory_url("deals"))
+        if not isinstance(deal, dict):
+            raise Http404("Deal not found")
+
+    form = DealForm(
+        request.POST if request.method == "POST" else None,
+        initial=_deal_initial(deal) if deal else None,
+    )
+    if request.method == "POST" and form.is_valid():
+        payload = form.api_payload()
+        if preview_mode:
+            deals = _preview_collection(request, "deals")
+            for index, item in enumerate(deals):
+                if str(item.get("id")) == str(deal_id):
+                    deals[index] = {**item, **payload}
+                    break
+            else:
+                raise Http404("Deal not found")
+            _save_preview_collection(request, "deals", deals)
+            messages.success(request, "Deal updated in preview mode.")
+            return HttpResponseRedirect(_inventory_url("deals"))
+        try:
+            service.update_deal(
+                auth_service.access_token(request), deal_id, payload
+            )
+            messages.success(request, "Deal updated successfully.")
+            return HttpResponseRedirect(_inventory_url("deals"))
+        except APIError as error:
+            auth_response = _api_redirect_if_auth_error(request, error)
+            if auth_response:
+                return auth_response
+            _add_api_errors(form, error)
+
+    return render(
+        request,
+        "sales/create_deal.html",
+        _form_context(
+            user,
+            form,
+            title="Edit Deal",
+            description=f"Update deal {deal_id}.",
+            tab="deals",
+            submit_label="Save Changes",
+        ),
+    )
+
+
+@require_GET
+def deal_detail_page(request, deal_id):
+    user, preview_mode, response = _page_access(request)
+    if response:
+        return response
+    try:
+        deal = presenters.normalize_deal(
+            _load_detail(
+                request,
+                preview_mode,
+                "deals",
+                deal_id,
+                service.get_deal,
+            )
+        )
+    except APIError as error:
+        if error.status_code == 404:
+            raise Http404("Deal not found") from error
+        auth_response = _api_redirect_if_auth_error(request, error)
+        if auth_response:
+            return auth_response
+        messages.error(request, error.message)
+        return HttpResponseRedirect(_inventory_url("deals"))
+
+    fields = [
+        ("Customer", deal.get("customer", "—")),
+        ("Vehicle", deal.get("vehicle", "—")),
+        ("Base Price", deal.get("base_price_display", "—")),
+        ("Discount", deal.get("discount_display", "—")),
+        ("Taxes & Fees", deal.get("taxes_display", "—")),
+        ("Trade-In Status", "Applied" if deal.get("trade_in_enabled") else "None"),
+        ("Balance Due", deal.get("balance_due_display", "—")),
+        ("Sales Agent", deal.get("sales_agent", "—")),
+    ]
+    context = _base_context(user, active_tab="deals")
+    context.update(
+        {
+            "detail_title": f"Deal {deal_id}",
+            "detail_description": "Sales & trade-in finalized deal summary",
+            "detail_fields": fields,
+            "back_url": _inventory_url("deals"),
+            "edit_url": reverse(
+                "inventory:deal-edit", kwargs={"deal_id": deal_id}
+            ),
+        }
+    )
+    return render(request, "inventory/detail.html", context)
+
+
+
+def deal_invoice_view(request, deal_id):
+    return render(request, 'sales/invoice.html', {'deal_id': deal_id})
