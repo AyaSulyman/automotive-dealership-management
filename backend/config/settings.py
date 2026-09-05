@@ -136,6 +136,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files (vehicle photos/videos, customer documents) — served by
+# Django's static() helper in DEBUG mode (see config/urls.py).
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -225,6 +230,11 @@ SPECTACULAR_SETTINGS = {
         'SalesInvoiceStatusEnum': 'sales.models.SalesInvoice.STATUS_CHOICES',
         'PaymentScheduleStatusEnum': 'payments.models.PaymentSchedule.STATUS_CHOICES',
         'FinancingAccountStatusEnum': 'payments.models.FinancingAccount.STATUS_CHOICES',
+        'VehicleStatusEnum': 'inventory.models.Vehicle.STATUS_CHOICES',
+        'VehicleConditionEnum': 'inventory.models.Vehicle.CONDITION_CHOICES',
+        'PurchaseOrderStatusEnum': 'inventory.models.PurchaseOrder.STATUS_CHOICES',
+        'VehicleMediaTypeEnum': 'inventory.models.VehicleMedia.MEDIA_TYPE_CHOICES',
+        'VehicleValuationSourceEnum': 'inventory.models.VehicleValuation.SOURCE_CHOICES',
     },
 }
 

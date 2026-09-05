@@ -87,3 +87,113 @@ class PurchaseOrder(models.Model):
             ).exists()
         except Exception:
             return False
+
+
+class Vehicle(models.Model):
+    """
+    A unit of inventory (API spec section 5). `total_cost_basis` is computed
+    server-side from acquisition + transport + recon costs and never sent in
+    request bodies. `mark_vehicle_sold` (sales/integrations.py) flips a sold
+    vehicle to SOLD when a deal is finalized.
+    """
+
+    STATUS_CHOICES = [
+        ("IN_TRANSIT", "In Transit"),
+        ("IN_STOCK", "In Stock"),
+        ("AVAILABLE", "Available"),
+        ("RESERVED", "Reserved"),
+        ("SOLD", "Sold"),
+    ]
+    CONDITION_CHOICES = [
+        ("NEW", "New"),
+        ("USED", "Used"),
+    ]
+
+    vin = models.CharField(max_length=50, unique=True)
+    make = models.CharField(max_length=60)
+    model = models.CharField(max_length=60)
+    year = models.PositiveIntegerField()
+    trim = models.CharField(max_length=60, blank=True)
+    condition = models.CharField(max_length=10, choices=CONDITION_CHOICES, default="USED")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="IN_STOCK")
+
+    branch = models.ForeignKey(
+        "accounts.Branch", null=True, blank=True, on_delete=models.SET_NULL, related_name="vehicles",
+    )
+    purchase_order = models.ForeignKey(
+        PurchaseOrder, null=True, blank=True, on_delete=models.SET_NULL, related_name="vehicles",
+    )
+
+    acquisition_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    transport_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    recon_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_cost_basis = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_vehicles", null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.year} {self.make} {self.model} ({self.vin})"
+
+    def compute_cost_basis(self):
+        self.total_cost_basis = (
+            (self.acquisition_cost or 0) + (self.transport_cost or 0) + (self.recon_cost or 0)
+        )
+        return self.total_cost_basis
+
+
+class VehicleMedia(models.Model):
+    """Photo / video attached to a vehicle (API spec section 5)."""
+
+    MEDIA_TYPE_CHOICES = [
+        ("PHOTO", "Photo"),
+        ("VIDEO", "Video"),
+    ]
+
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="media")
+    file = models.FileField(upload_to="vehicle_media/%Y/%m/")
+    media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES, default="PHOTO")
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="vehicle_uploads",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Media {self.media_type} for vehicle {self.vehicle_id}"
+
+
+class VehicleValuation(models.Model):
+    """Manual appraisal of a vehicle (API spec section 5)."""
+
+    SOURCE_CHOICES = [
+        ("MANUAL", "Manual"),
+        ("THIRD_PARTY", "Third-party"),
+    ]
+
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="valuations")
+    value = models.DecimalField(max_digits=12, decimal_places=2)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default="MANUAL")
+    notes = models.TextField(blank=True)
+    appraised_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="vehicle_valuations",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Valuation ${self.value} for vehicle {self.vehicle_id}"
