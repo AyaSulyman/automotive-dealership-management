@@ -25,4 +25,5 @@ urlpatterns = [
         name="employee-edit",
     ),
     path("", include("inventory.urls")),
+    path("", include("crm_finance.urls")),
 ]

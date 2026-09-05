@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Customers | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'crm_finance/css/crm_finance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="business-page">
+    <header class="business-heading">
+        <div>
+            <p class="business-eyebrow">Customer records</p>
+            <h1>Customers</h1>
+            <p>Manage customer information and transaction history.</p>
+        </div>
+        {% if can_edit_customers %}
+            <a class="business-btn business-btn--primary" href="{% url 'crm_finance:customer-add' %}">
+                <span aria-hidden="true">+</span> Add Customer
+            </a>
+        {% endif %}
+    </header>
+
+    {% if customer_errors %}
+        <div class="business-notice is-error" role="alert">
+            {% for error in customer_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+
+    <section class="business-card">
+        <form class="business-toolbar" method="get" action="{% url 'crm_finance:customers' %}" role="search">
+            <label class="business-search">
+                <span class="visually-hidden">Search customers</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input name="search" type="search" value="{{ search_query }}" placeholder="Search name, ID, phone, or email…" autocomplete="off">
+            </label>
+            <button class="business-btn business-btn--outline" type="submit">Search</button>
+            {% if search_query %}<a class="business-clear" href="{% url 'crm_finance:customers' %}">Clear</a>{% endif %}
+            <span class="toolbar-count">Showing {{ display_start }}–{{ display_end }} of {{ result_count }}</span>
+        </form>
+
+        <div class="business-table-wrap">
+            <table class="business-table">
+                <thead>
+                    <tr>
+                        <th>Customer ID</th>
+                        <th>Name</th>
+                        <th>ID / Tax Number</th>
+                        <th>Contact Information</th>
+                        <th><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for customer in customers %}
+                    <tr>
+                        <td class="cell-id">{{ customer.number }}</td>
+                        <td>
+                            <a class="customer-name" href="{% url 'crm_finance:customer-detail' customer.id %}">
+                                <span class="customer-avatar" aria-hidden="true">{{ customer.name|slice:":1" }}</span>
+                                <strong>{{ customer.name }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ customer.id_number }}</td>
+                        <td><strong>{{ customer.phone }}</strong><small>{{ customer.email }}</small></td>
+                        <td class="table-action">
+                            <a href="{% url 'crm_finance:customer-detail' customer.id %}">View</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td class="business-empty" colspan="5">No customers match your search.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <footer class="business-table-footer">
+            {% if has_previous %}
+                <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}?search={{ search_query|urlencode }}&amp;page={{ previous_page }}">Previous</a>
+            {% else %}
+                <span class="business-btn business-btn--outline is-disabled" aria-disabled="true">Previous</span>
+            {% endif %}
+            <span>Page {{ current_page }}</span>
+            {% if has_next %}
+                <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}?search={{ search_query|urlencode }}&amp;page={{ next_page }}">Next</a>
+            {% else %}
+                <span class="business-btn business-btn--outline is-disabled" aria-disabled="true">Next</span>
+            {% endif %}
+        </footer>
+    </section>
+</div>
+{% endblock %}
+

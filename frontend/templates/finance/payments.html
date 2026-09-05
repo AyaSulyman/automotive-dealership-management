@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Payments &amp; Financing | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'crm_finance/css/crm_finance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="business-page">
+    <header class="business-heading">
+        <div>
+            <p class="business-eyebrow">Accounting</p>
+            <h1>Payments &amp; Financing</h1>
+            <p>Manage payments, installment schedules, and financing agreements.</p>
+        </div>
+        <div class="heading-actions">
+            <a class="business-btn business-btn--outline" href="{% url 'crm_finance:payments-export' %}">Export Payments</a>
+            {% if can_record_payment %}<a class="business-btn business-btn--primary" href="{% url 'crm_finance:payment-record' %}"><span aria-hidden="true">+</span> Record Payment</a>{% endif %}
+        </div>
+    </header>
+
+    {% if payment_errors %}
+        <div class="business-notice is-error" role="alert">{% for error in payment_errors %}<p>{{ error }}</p>{% endfor %}</div>
+    {% endif %}
+
+    <nav class="business-tabs" aria-label="Payments and financing sections">
+        <a class="{% if active_tab == 'payments' %}is-active{% endif %}" href="{% url 'crm_finance:payments' %}?tab=payments">Payments Ledger</a>
+        <a class="{% if active_tab == 'schedules' %}is-active{% endif %}" href="{% url 'crm_finance:payments' %}?tab=schedules">Payment Schedules</a>
+        <a class="{% if active_tab == 'financing' %}is-active{% endif %}" href="{% url 'crm_finance:payments' %}?tab=financing">Financing Agreements</a>
+    </nav>
+
+    <section class="business-card">
+        <form class="business-toolbar business-toolbar--filters" method="get" action="{% url 'crm_finance:payments' %}">
+            <input type="hidden" name="tab" value="{{ active_tab }}">
+            <label>
+                <span>Invoice</span>
+                <select class="business-select" name="invoice_id">
+                    <option value="">All invoices</option>
+                    {% for invoice in invoice_options %}
+                        <option value="{{ invoice.id }}"{% if selected_invoice == invoice.id|stringformat:"s" %} selected{% endif %}>{{ invoice.number }} — {{ invoice.customer }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% if active_tab == 'payments' %}
+                <label>
+                    <span>Method</span>
+                    <select class="business-select" name="method">
+                        <option value="">All methods</option>
+                        <option value="CASH"{% if selected_method == 'CASH' %} selected{% endif %}>Cash</option>
+                        <option value="CARD"{% if selected_method == 'CARD' %} selected{% endif %}>Card</option>
+                        <option value="TRANSFER"{% if selected_method == 'TRANSFER' %} selected{% endif %}>Bank Transfer</option>
+                    </select>
+                </label>
+                <label><span>From</span><input class="business-input" name="date_from" type="date" value="{{ date_from }}"></label>
+                <label><span>To</span><input class="business-input" name="date_to" type="date" value="{{ date_to }}"></label>
+            {% endif %}
+            <button class="business-btn business-btn--outline" type="submit">Apply</button>
+            {% if selected_invoice or selected_method or date_from or date_to %}<a class="business-clear" href="{% url 'crm_finance:payments' %}?tab={{ active_tab }}">Clear</a>{% endif %}
+        </form>
+
+        <div class="business-table-wrap">
+            {% if active_tab == 'payments' %}
+                <table class="business-table">
+                    <thead><tr><th>Receipt</th><th>Invoice</th><th>Customer</th><th>Amount</th><th>Method</th><th>Paid At</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                        {% for payment in rows %}
+                        <tr>
+                            <td class="cell-id">{{ payment.receipt }}</td>
+                            <td>{{ payment.invoice }}</td>
+                            <td class="cell-strong">{{ payment.customer }}</td>
+                            <td class="cell-strong">{{ payment.amount }}</td>
+                            <td><span class="status-badge status-badge--{{ payment.method_key }}">{{ payment.method }}</span></td>
+                            <td>{{ payment.paid_at|date:"M j, Y · g:i A"|default:payment.paid_at }}</td>
+                            <td class="table-action">{% if payment.id %}<a href="{% url 'crm_finance:payment-receipt' payment.id %}">Receipt</a>{% endif %}</td>
+                        </tr>
+                        {% empty %}<tr><td class="business-empty" colspan="7">No payments match these filters.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            {% elif active_tab == 'schedules' %}
+                <table class="business-table">
+                    <thead><tr><th>Invoice</th><th>Installment</th><th>Due Date</th><th>Amount Due</th><th>Amount Paid</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for schedule in rows %}
+                        <tr>
+                            <td class="cell-id">{{ schedule.invoice }}</td>
+                            <td>#{{ schedule.installment }}</td>
+                            <td>{{ schedule.due_date|date:"M j, Y"|default:schedule.due_date }}</td>
+                            <td class="cell-strong">{{ schedule.amount_due }}</td>
+                            <td>{{ schedule.amount_paid }}</td>
+                            <td><span class="status-badge status-badge--{{ schedule.status|lower }}">{{ schedule.status|title }}</span></td>
+                        </tr>
+                        {% empty %}<tr><td class="business-empty" colspan="6">No payment schedules found.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <table class="business-table">
+                    <thead><tr><th>Invoice</th><th>Lender</th><th>Down Payment</th><th>Term</th><th>Rate</th><th>Monthly Payment</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for account in rows %}
+                        <tr>
+                            <td class="cell-id">{{ account.invoice }}</td>
+                            <td class="cell-strong">{{ account.lender }}</td>
+                            <td>{{ account.down_payment }}</td>
+                            <td>{{ account.term }} months</td>
+                            <td>{{ account.rate }}</td>
+                            <td class="cell-strong">{{ account.monthly_payment }}</td>
+                            <td><span class="status-badge status-badge--{{ account.status|lower }}">{{ account.status|title }}</span></td>
+                        </tr>
+                        {% empty %}<tr><td class="business-empty" colspan="7">No financing agreements found.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
