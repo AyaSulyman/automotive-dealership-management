@@ -94,6 +94,7 @@ class CustomerHistoryView(APIView):
     """GET /customers/{pk}/history — merged timeline across both people's data."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CustomerSerializer
 
     def get(self, request, pk):
         customer = _get_customer(pk)
@@ -155,6 +156,7 @@ class CustomerBalanceView(APIView):
     """GET /customers/{pk}/balance — admin/accountant only."""
 
     permission_classes = [IsAdminOrAccountant]
+    serializer_class = CustomerSerializer
 
     def get(self, request, pk):
         customer = _get_customer(pk)
@@ -186,6 +188,7 @@ class CustomerStatementView(APIView):
     """GET /customers/{pk}/statement — persists a payments.Statement summary."""
 
     permission_classes = [IsAdminOrAccountant]
+    serializer_class = CustomerSerializer
 
     def get(self, request, pk):
         customer = _get_customer(pk)

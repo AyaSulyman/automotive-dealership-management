@@ -1,0 +1,14 @@
+[05/Sep/2026 03:50:27] "GET /api/v1/docs HTTP/1.1" 200 4654
+[05/Sep/2026 03:50:52] "POST /api/v1/auth/login HTTP/1.1" 200 660
+[05/Sep/2026 03:50:52] "GET /api/v1/roles HTTP/1.1" 200 250
+[05/Sep/2026 03:50:52] "GET /api/v1/users HTTP/1.1" 200 624
+[05/Sep/2026 03:50:54] "POST /api/v1/users HTTP/1.1" 201 169
+[05/Sep/2026 03:50:54] "GET /api/v1/users?search=sara HTTP/1.1" 200 221
+[05/Sep/2026 03:50:54] "GET /api/v1/users?role_id=2 HTTP/1.1" 200 360
+[05/Sep/2026 03:50:55] "PATCH /api/v1/users/5 HTTP/1.1" 200 174
+[05/Sep/2026 03:50:55] "DELETE /api/v1/users/5 HTTP/1.1" 200 38
+[05/Sep/2026 03:50:55] "GET /api/v1/users?a__ HTTP/1.1" 200 800
+[05/Sep/2026 03:50:57] "POST /api/v1/auth/login HTTP/1.1" 200 647
+Forbidden: /api/v1/users
+[05/Sep/2026 03:50:57] "GET /api/v1/users HTTP/1.1" 403 105
+[05/Sep/2026 03:50:57,395] - Broken pipe from ('127.0.0.1', 52284)

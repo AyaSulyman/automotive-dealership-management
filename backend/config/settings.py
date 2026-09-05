@@ -197,14 +197,11 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'AutoSource ADMS API',
     'DESCRIPTION': (
         'Automotive Dealership Management System API.\n\n'
-        'This schema currently documents Person 2\'s scope: Trade-Ins, '
-        'Sales Invoices / Deals, Tax Rules, Payments, Payment Schedules, '
-        'Financing Accounts, Statements, Dashboard, Finance & Reports, '
-        'and the Audit Log. Person 1\'s endpoints (Authentication, Users '
-        '& Roles, Vendors, Purchase Orders, Vehicles, Documents, '
-        'Customers) will appear here automatically once that app is '
-        'merged, since they share the same DRF schema generator — no '
-        'extra wiring needed on either side.'
+        'Covers both people\'s scopes. Person 1: Authentication, Users & '
+        'Roles, Vendors, Purchase Orders, Vehicles, Documents, Customers. '
+        'Person 2: Trade-Ins, Sales Invoices / Deals, Tax Rules, Payments, '
+        'Payment Schedules, Financing Accounts, Statements, Dashboard, '
+        'Finance & Reports, and the Audit Log.'
     ),
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
@@ -212,6 +209,13 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
     'SORT_OPERATIONS': False,
     'TAGS': [
+        {'name': 'Authentication', 'description': 'Login, token refresh/rotation, logout, current user.'},
+        {'name': 'Users & Roles', 'description': 'Admin-managed users and the admin/agent/accountant roles.'},
+        {'name': 'Vendors', 'description': 'Vehicle suppliers.'},
+        {'name': 'Purchase Orders', 'description': 'Stock orders placed with vendors (PENDING > RECEIVED > CLOSED).'},
+        {'name': 'Vehicles', 'description': 'Inventory units, cost basis, media, valuations.'},
+        {'name': 'Documents', 'description': 'Attachments for vehicles, customers, and invoices.'},
+        {'name': 'Customers', 'description': 'Customer records, consolidated history, balance, statements.'},
         {'name': 'Trade-Ins', 'description': 'Trade-in appraisal and crediting.'},
         {'name': 'Tax Rules', 'description': 'Admin-configured tax rates.'},
         {'name': 'Sales Invoices', 'description': 'The deal / invoice lifecycle.'},
