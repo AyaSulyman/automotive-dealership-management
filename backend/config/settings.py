@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
 
+    # Local apps — Person 1 (Omar): accounts & roles
+    'accounts',
     # Local apps — Person 2 (Aya): sales/deal lifecycle, payments & financing, reporting
     'sales',
     'payments',
@@ -232,8 +234,6 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
 }
 
-# NOTE (integration): role checks (admin / agent / accountant) are implemented
-# via Django's built-in auth Group model as an interim mechanism — see
-# common/permissions.py — so Person 2's endpoints don't depend on Person 1's
-# dedicated Role/Profile model landing first. Swap the permission class's
-# lookup to the real Role model once it's merged; the call sites won't change.
+# Role checks (admin / agent / accountant) read from Person 1's
+# accounts.UserProfile.role with a Django Groups fallback — see
+# common/permissions.py. Superuser always passes every role check.
