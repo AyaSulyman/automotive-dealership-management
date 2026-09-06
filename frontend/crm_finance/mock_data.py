@@ -11,19 +11,19 @@ MOCK_CUSTOMERS = [
         "phone": "(555) 019-2834",
         "email": "elena.r@example.com",
         "address": "18 Westbrook Avenue",
-        "preferred_contact_channel": "EMAIL",
+        "status": "ACTIVE",
         "created_at": "2026-07-12",
     },
     {
         "id": 89235,
         "customer_number": "CUS-89235",
         "full_name": "James Duncan",
-        "id_type": "TAX_ID",
+        "id_type": "DL",
         "id_number": "TX-112-445-B",
         "phone": "(555) 882-9912",
         "email": "j.duncan@corp.com",
         "address": "42 Market Street",
-        "preferred_contact_channel": "PHONE",
+        "status": "LEAD",
         "created_at": "2026-07-18",
     },
     {
@@ -35,7 +35,7 @@ MOCK_CUSTOMERS = [
         "phone": "(555) 230-7741",
         "email": "e.jenkins@example.com",
         "address": "9 Cedar Drive",
-        "preferred_contact_channel": "EMAIL",
+        "status": "VIP",
         "created_at": "2026-08-04",
     },
     {
@@ -47,7 +47,7 @@ MOCK_CUSTOMERS = [
         "phone": "(555) 661-0950",
         "email": "m.chen@example.com",
         "address": "77 Lakeview Road",
-        "preferred_contact_channel": "PHONE",
+        "status": "ACTIVE",
         "created_at": "2026-08-21",
     },
 ]
@@ -289,4 +289,3 @@ def finance_overview():
 
 def vehicle_summaries():
     return deepcopy(MOCK_VEHICLE_SUMMARIES)
-

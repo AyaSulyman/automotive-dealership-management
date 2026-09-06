@@ -9,17 +9,12 @@ FORM_CONTROL = {"class": "inventory-form-control"}
 class VehicleForm(forms.Form):
     STATUS_CHOICES = (
         ("IN_TRANSIT", "In Transit"),
-        ("RECEIVED", "Received"),
-        ("UNDER_RECONDITIONING", "Under Reconditioning"),
+        ("IN_STOCK", "In Stock"),
         ("AVAILABLE", "Available"),
-        ("RESERVED", "Reserved"),
-        ("SOLD", "Sold"),
-        ("RETURNED", "Returned"),
     )
     CONDITION_CHOICES = (
-        ("New", "New"),
-        ("Used", "Used"),
-        ("Certified", "Certified"),
+        ("NEW", "New"),
+        ("USED", "Used"),
     )
 
     vin = forms.CharField(
@@ -35,11 +30,11 @@ class VehicleForm(forms.Form):
         ),
     )
     make = forms.CharField(
-        max_length=80,
+        max_length=60,
         widget=forms.TextInput(attrs={**FORM_CONTROL, "placeholder": "Toyota"}),
     )
     model = forms.CharField(
-        max_length=80,
+        max_length=60,
         widget=forms.TextInput(attrs={**FORM_CONTROL, "placeholder": "Corolla"}),
     )
     year = forms.IntegerField(
@@ -48,22 +43,24 @@ class VehicleForm(forms.Form):
         widget=forms.NumberInput(attrs=FORM_CONTROL),
     )
     trim = forms.CharField(
-        max_length=80,
+        max_length=60,
         required=False,
         widget=forms.TextInput(attrs={**FORM_CONTROL, "placeholder": "LE"}),
     )
     condition = forms.ChoiceField(
         choices=CONDITION_CHOICES,
+        initial="USED",
         widget=forms.Select(attrs=FORM_CONTROL),
     )
-    purchase_order_id = forms.CharField(
+    purchase_order_id = forms.ChoiceField(
         label="Purchase Order",
-        max_length=80,
         required=False,
-        widget=forms.TextInput(attrs={**FORM_CONTROL, "placeholder": "PO-8821"}),
+        choices=(),
+        widget=forms.Select(attrs=FORM_CONTROL),
     )
     status = forms.ChoiceField(
         choices=STATUS_CHOICES,
+        initial="AVAILABLE",
         widget=forms.Select(attrs=FORM_CONTROL),
     )
     acquisition_cost = forms.DecimalField(
@@ -88,8 +85,22 @@ class VehicleForm(forms.Form):
         widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"}),
     )
 
+    selling_price = forms.DecimalField(label="List price", min_value=0, max_digits=12, decimal_places=2, required=False, widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"}))
+
     def clean_vin(self):
         return self.cleaned_data["vin"].strip().upper()
+
+    def __init__(self, *args, purchase_orders=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        purchase_orders = purchase_orders or []
+        self.fields["purchase_order_id"].choices = [("", "No purchase order")] + [
+            (
+                str(order["id"]),
+                f'{order["number"]} — {order["vendor"]}',
+            )
+            for order in purchase_orders
+            if order.get("id") not in (None, "")
+        ]
 
     def api_payload(self):
         return {
@@ -99,11 +110,16 @@ class VehicleForm(forms.Form):
             "year": self.cleaned_data["year"],
             "trim": self.cleaned_data["trim"],
             "condition": self.cleaned_data["condition"],
-            "purchase_order_id": self.cleaned_data["purchase_order_id"] or None,
+            "purchase_order_id": (
+                int(self.cleaned_data["purchase_order_id"])
+                if str(self.cleaned_data["purchase_order_id"]).isdigit()
+                else self.cleaned_data["purchase_order_id"] or None
+            ),
             "status": self.cleaned_data["status"],
-            "acquisition_cost": float(self.cleaned_data["acquisition_cost"]),
-            "transport_cost": float(self.cleaned_data["transport_cost"]),
-            "recon_cost": float(self.cleaned_data["recon_cost"]),
+            "selling_price": str(self.cleaned_data["selling_price"]) if self.cleaned_data["selling_price"] is not None else None,
+            "acquisition_cost": str(self.cleaned_data["acquisition_cost"]),
+            "transport_cost": str(self.cleaned_data["transport_cost"]),
+            "recon_cost": str(self.cleaned_data["recon_cost"]),
         }
 
 
@@ -113,7 +129,7 @@ class VendorForm(forms.Form):
         max_length=150,
         widget=forms.TextInput(attrs=FORM_CONTROL),
     )
-    contact_name = forms.CharField(
+    contact_person = forms.CharField(
         label="Contact Person",
         max_length=150,
         required=False,
@@ -128,11 +144,11 @@ class VendorForm(forms.Form):
         required=False,
         widget=forms.EmailInput(attrs=FORM_CONTROL),
     )
-    payment_terms = forms.CharField(
-        max_length=80,
+    address = forms.CharField(
+        max_length=255,
         required=False,
         widget=forms.TextInput(
-            attrs={**FORM_CONTROL, "placeholder": "Net 30"}
+            attrs={**FORM_CONTROL, "placeholder": "Vendor address"}
         ),
     )
     is_active = forms.BooleanField(
@@ -144,10 +160,10 @@ class VendorForm(forms.Form):
     def api_payload(self):
         return {
             "name": self.cleaned_data["name"],
-            "contact_name": self.cleaned_data["contact_name"],
+            "contact_person": self.cleaned_data["contact_person"],
             "phone": self.cleaned_data["phone"],
             "email": self.cleaned_data["email"],
-            "payment_terms": self.cleaned_data["payment_terms"],
+            "address": self.cleaned_data["address"],
             "is_active": self.cleaned_data["is_active"],
         }
 
@@ -158,64 +174,29 @@ class PurchaseOrderStatusForm(forms.Form):
         ("RECEIVED", "Received"),
         ("CLOSED", "Closed"),
     )
+
     status = forms.ChoiceField(choices=STATUS_CHOICES)
 
 
-class DealForm(forms.Form):
-    DEAL_STATUS_CHOICES = (
-        ("PENDING", "Pending"),
-        ("APPROVED", "Approved"),
-        ("CLOSED", "Closed"),
+class DocumentForm(forms.Form):
+    DOC_TYPE_CHOICES = (
+        ("TITLE", "Title"),
+        ("ID", "ID"),
+        ("CONTRACT", "Contract"),
+        ("INSPECTION", "Inspection"),
+        ("BILL_OF_SALE", "Bill of Sale"),
+    )
+    doc_type = forms.ChoiceField(label="Document type", choices=DOC_TYPE_CHOICES, widget=forms.Select(attrs=FORM_CONTROL))
+    file = forms.FileField(
+        label="File",
+        help_text="PDF, PNG, JPG, or JPEG. Maximum 10 MB.",
+        widget=forms.ClearableFileInput(attrs={"accept": ".pdf,.png,.jpg,.jpeg"}),
     )
 
-    customer = forms.CharField(
-        max_length=100,
-        widget=forms.Select(
-            choices=[('', 'Select Customer'), ('1', 'Eleanor Vance')],
-            attrs=FORM_CONTROL
-        )
-    )
-    vehicle = forms.CharField(
-        widget=forms.Select(
-            choices=[('', 'Select Available Vehicle'), ('v1', '2024 Veloce Executive Sedan')],
-            attrs=FORM_CONTROL
-        )
-    )
-    sale_price = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        initial=54200.00,
-        widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"})
-    )
-    discount = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        initial=-1500.00,
-        required=False,
-        widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"})
-    )
-    tax = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        initial=4216.00,
-        widget=forms.NumberInput(attrs={**FORM_CONTROL, "step": "0.01"})
-    )
-    trade_in_details = forms.CharField(
-        widget=forms.Textarea(attrs={**FORM_CONTROL, 'rows': 2, 'placeholder': '2018 Horizon SUV - Black'}),
-        required=False
-    )
-    status = forms.ChoiceField(
-        choices=DEAL_STATUS_CHOICES,
-        widget=forms.Select(attrs=FORM_CONTROL)
-    )
-
-    def api_payload(self):
-        return {
-            "customer": self.cleaned_data["customer"],
-            "vehicle": self.cleaned_data["vehicle"],
-            "sale_price": float(self.cleaned_data["sale_price"]),
-            "discount": float(self.cleaned_data["discount"] or 0),
-            "tax": float(self.cleaned_data["tax"]),
-            "trade_in_details": self.cleaned_data["trade_in_details"],
-            "status": self.cleaned_data["status"],
-        }
+    def clean_file(self):
+        uploaded = self.cleaned_data["file"]
+        if uploaded.size > 10 * 1024 * 1024:
+            raise forms.ValidationError("Files must be 10 MB or smaller.")
+        if not uploaded.name.lower().endswith((".pdf", ".png", ".jpg", ".jpeg")):
+            raise forms.ValidationError("Upload a PDF, PNG, JPG, or JPEG file.")
+        return uploaded

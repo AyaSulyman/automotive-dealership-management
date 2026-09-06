@@ -58,8 +58,16 @@
 
 .metric-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 24px;
+}
+
+.metric-card {
+    grid-column: span 2;
+}
+
+.metric-card:nth-last-child(-n + 2) {
+    grid-column: span 3;
 }
 
 .metric-card,
@@ -536,6 +544,11 @@ tbody tr:hover {
 @media (max-width: 1280px) {
     .metric-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metric-card,
+    .metric-card:nth-last-child(-n + 2) {
+        grid-column: auto;
     }
 }
 

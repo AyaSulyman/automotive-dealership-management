@@ -27,6 +27,11 @@ urlpatterns = [
         name="payment-receipt",
     ),
     path(
+        "payments/<str:payment_id>/receipt.pdf",
+        views.payment_receipt_pdf,
+        name="payment-receipt-pdf",
+    ),
+    path(
         "finance-reports/",
         views.finance_reports_page,
         name="finance-reports",

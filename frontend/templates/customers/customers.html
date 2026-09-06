@@ -32,8 +32,18 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
                 <input name="search" type="search" value="{{ search_query }}" placeholder="Search name, ID, phone, or email…" autocomplete="off">
             </label>
+            <label>
+                <span class="visually-hidden">Customer status</span>
+                <select class="business-select" name="status">
+                    <option value="">All statuses</option>
+                    <option value="LEAD"{% if selected_status == 'LEAD' %} selected{% endif %}>Lead</option>
+                    <option value="ACTIVE"{% if selected_status == 'ACTIVE' %} selected{% endif %}>Active</option>
+                    <option value="VIP"{% if selected_status == 'VIP' %} selected{% endif %}>VIP</option>
+                    <option value="INACTIVE"{% if selected_status == 'INACTIVE' %} selected{% endif %}>Inactive</option>
+                </select>
+            </label>
             <button class="business-btn business-btn--outline" type="submit">Search</button>
-            {% if search_query %}<a class="business-clear" href="{% url 'crm_finance:customers' %}">Clear</a>{% endif %}
+            {% if search_query or selected_status %}<a class="business-clear" href="{% url 'crm_finance:customers' %}">Clear</a>{% endif %}
             <span class="toolbar-count">Showing {{ display_start }}–{{ display_end }} of {{ result_count }}</span>
         </form>
 
@@ -43,8 +53,9 @@
                     <tr>
                         <th>Customer ID</th>
                         <th>Name</th>
-                        <th>ID / Tax Number</th>
+                        <th>ID Number</th>
                         <th>Contact Information</th>
+                        <th>Status</th>
                         <th><span class="visually-hidden">Actions</span></th>
                     </tr>
                 </thead>
@@ -60,12 +71,13 @@
                         </td>
                         <td>{{ customer.id_number }}</td>
                         <td><strong>{{ customer.phone }}</strong><small>{{ customer.email }}</small></td>
+                        <td><span class="status-badge status-badge--{{ customer.status|lower }}">{{ customer.status_display }}</span></td>
                         <td class="table-action">
                             <a href="{% url 'crm_finance:customer-detail' customer.id %}">View</a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td class="business-empty" colspan="5">No customers match your search.</td></tr>
+                    <tr><td class="business-empty" colspan="6">No customers match your search.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -73,13 +85,13 @@
 
         <footer class="business-table-footer">
             {% if has_previous %}
-                <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}?search={{ search_query|urlencode }}&amp;page={{ previous_page }}">Previous</a>
+                <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}?search={{ search_query|urlencode }}&amp;status={{ selected_status|urlencode }}&amp;page={{ previous_page }}">Previous</a>
             {% else %}
                 <span class="business-btn business-btn--outline is-disabled" aria-disabled="true">Previous</span>
             {% endif %}
             <span>Page {{ current_page }}</span>
             {% if has_next %}
-                <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}?search={{ search_query|urlencode }}&amp;page={{ next_page }}">Next</a>
+                <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}?search={{ search_query|urlencode }}&amp;status={{ selected_status|urlencode }}&amp;page={{ next_page }}">Next</a>
             {% else %}
                 <span class="business-btn business-btn--outline is-disabled" aria-disabled="true">Next</span>
             {% endif %}
@@ -87,4 +99,3 @@
     </section>
 </div>
 {% endblock %}
-

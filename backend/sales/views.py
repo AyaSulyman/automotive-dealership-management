@@ -1,3 +1,5 @@
+from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -7,10 +9,9 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.permissions import IsAdmin, IsAdminAgentOrAccountant, IsAdminOrAgent
+from common.permissions import IsAdmin, IsAdminOrAccountant
 from common.pdf import render_simple_document
 
-from .integrations import mark_vehicle_sold
 from .models import Discount, SalesInvoice, TaxRule, TradeIn
 from reports.audit import log_action
 from .serializers import (
@@ -18,6 +19,7 @@ from .serializers import (
     SalesInvoiceCreateSerializer, SalesInvoiceSerializer, SalesInvoiceUpdateSerializer,
     TaxRuleSerializer, TradeInSerializer,
 )
+from .workflow import finalize_invoice, tax_rate, validate_vehicle
 
 
 @extend_schema_view(
@@ -30,7 +32,7 @@ class TradeInListCreateView(generics.ListCreateAPIView):
     """
     queryset = TradeIn.objects.all()
     serializer_class = TradeInSerializer
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
     filterset_fields = ["customer_id"]
 
     def perform_create(self, serializer):
@@ -48,7 +50,7 @@ class TradeInDetailView(generics.RetrieveUpdateAPIView):
     """
     queryset = TradeIn.objects.all()
     serializer_class = TradeInSerializer
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -68,12 +70,13 @@ class TradeInApplyCreditView(APIView):
     (e.g. "TRD-993-A2") matching the "Credited Invoice ID (Generated)"
     field shown on the Sales & Trade-Ins screen.
     """
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Trade-Ins"], summary="Credit a trade-in to a DRAFT invoice",
                    request=ApplyCreditSerializer, responses=TradeInSerializer)
+    @transaction.atomic
     def post(self, request, pk):
-        trade_in = generics.get_object_or_404(TradeIn, pk=pk)
+        trade_in = generics.get_object_or_404(TradeIn.objects.select_for_update(), pk=pk)
         if trade_in.is_credited:
             return Response(
                 {"error": {"code": "conflict", "message": "Trade-in is already credited to an invoice.", "fields": {}}},
@@ -82,11 +85,21 @@ class TradeInApplyCreditView(APIView):
 
         serializer = ApplyCreditSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        invoice = generics.get_object_or_404(SalesInvoice, pk=serializer.validated_data["invoice_id"])
+        invoice = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=serializer.validated_data["invoice_id"])
         if invoice.status != "DRAFT":
             return Response(
                 {"error": {"code": "conflict", "message": "Trade-ins can only be credited to a DRAFT deal.", "fields": {}}},
                 status=status.HTTP_409_CONFLICT,
+            )
+        if trade_in.customer_id != invoice.customer_id:
+            return Response(
+                {"error": {"code": "bad_request", "message": "The trade-in and invoice must belong to the same customer.", "fields": {}}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if invoice.total_amount - trade_in.appraised_value <= 0:
+            return Response(
+                {"error": {"code": "bad_request", "message": "The trade-in credit must leave a positive invoice total.", "fields": {}}},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         reference = f"TRD-{trade_in.pk:03d}-{get_random_string(2, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')}"
@@ -132,8 +145,7 @@ class TaxRuleDetailView(generics.RetrieveUpdateAPIView):
 
 
 def _active_tax_rate():
-    rule = TaxRule.objects.filter(is_active=True).order_by("id").first()
-    return rule.rate if rule else None
+    return tax_rate()
 
 
 @extend_schema_view(
@@ -147,28 +159,48 @@ class SalesInvoiceListCreateView(generics.ListCreateAPIView):
     POST /sales-invoices    Create Deal Worksheet (status DRAFT).
     """
     queryset = SalesInvoice.objects.all()
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
     filterset_fields = ["customer_id", "vehicle_id", "status", "branch_id"]
+
+    def get_queryset(self):
+        qs = SalesInvoice.objects.select_related("salesperson").prefetch_related("discounts", "trade_ins")
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            query = Q(invoice_number__icontains=search)
+            if search.isdigit():
+                query |= Q(pk=int(search))
+            qs = qs.filter(query)
+        return qs.order_by("-created_at")
 
     def get_serializer_class(self):
         return SalesInvoiceCreateSerializer if self.request.method == "POST" else SalesInvoiceSerializer
 
     def get_permissions(self):
         # Read access (list) is also open to accountants for reconciliation;
-        # only admin/agent can create deals.
+        # only admin/finance can create deals.
         if self.request.method == "GET":
-            return [IsAdminAgentOrAccountant()]
-        return [IsAdminOrAgent()]
+            return [IsAdminOrAccountant()]
+        return [IsAdminOrAccountant()]
 
     def perform_create(self, serializer):
         serializer.save()
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        invoice = serializer.save()
+        vehicle_id = serializer.validated_data["vehicle_id"]
+        from inventory.models import Vehicle
+        vehicle = generics.get_object_or_404(Vehicle.objects.select_for_update(), pk=vehicle_id)
+        validate_vehicle(vehicle)
+        invoice = serializer.save(salesperson=request.user)
         invoice.recompute_totals(tax_rate=_active_tax_rate())
+        if invoice.total_amount <= 0:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"dealer_markup_discount": "Discount must leave a positive total."})
         invoice.save()
+        vehicle.status = "RESERVED"
+        vehicle.save(update_fields=["status", "updated_at"])
         return Response(SalesInvoiceSerializer(invoice).data, status=status.HTTP_201_CREATED)
 
 
@@ -185,16 +217,17 @@ class SalesInvoiceDetailView(generics.RetrieveUpdateAPIView):
 
     def get_permissions(self):
         # Read access is also open to accountants for reconciliation;
-        # only admin/agent can edit a DRAFT deal.
+        # only admin/finance can edit a DRAFT deal.
         if self.request.method == "GET":
-            return [IsAdminAgentOrAccountant()]
-        return [IsAdminOrAgent()]
+            return [IsAdminOrAccountant()]
+        return [IsAdminOrAccountant()]
 
     def get_serializer_class(self):
         return SalesInvoiceUpdateSerializer if self.request.method == "PATCH" else SalesInvoiceSerializer
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
+        instance = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=kwargs["pk"])
         if instance.status != "DRAFT":
             return Response(
                 {"error": {"code": "conflict", "message": "Only DRAFT deals can be edited.", "fields": {}}},
@@ -202,19 +235,37 @@ class SalesInvoiceDetailView(generics.RetrieveUpdateAPIView):
             )
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        old_vehicle_id = instance.vehicle_id
+        new_vehicle_id = serializer.validated_data.get("vehicle_id", old_vehicle_id)
+        from inventory.models import Vehicle
+        new_vehicle = generics.get_object_or_404(
+            Vehicle.objects.select_for_update(), pk=new_vehicle_id,
+        )
+        validate_vehicle(new_vehicle, instance)
         invoice = serializer.save()
         invoice.recompute_totals(tax_rate=_active_tax_rate())
+        if invoice.total_amount <= 0:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"discount_amount": "Discount must leave a positive total."})
         invoice.save()
+        if old_vehicle_id != invoice.vehicle_id:
+            old_vehicle = Vehicle.objects.select_for_update().filter(pk=old_vehicle_id, status="RESERVED").first()
+            if old_vehicle:
+                old_vehicle.status = "AVAILABLE"
+                old_vehicle.save(update_fields=["status", "updated_at"])
+            new_vehicle.status = "RESERVED"
+            new_vehicle.save(update_fields=["status", "updated_at"])
         return Response(SalesInvoiceSerializer(invoice).data)
 
 
 class SalesInvoiceSaveDraftView(APIView):
     """POST /sales-invoices/{id}/save-draft — explicit "Save Draft" action."""
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Sales Invoices"], summary="Save Draft", request=None, responses=SalesInvoiceSerializer)
+    @transaction.atomic
     def post(self, request, pk):
-        invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
+        invoice = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=pk)
         if invoice.status != "DRAFT":
             return Response(
                 {"error": {"code": "conflict", "message": "Deal is no longer a draft.", "fields": {}}},
@@ -229,49 +280,29 @@ class SalesInvoiceFinalizeView(APIView):
     """
     POST /sales-invoices/{id}/finalize
     Validates trade-in/discount, generates invoice_number, sets status=OPEN,
-    marks the vehicle SOLD (via the integrations stub).
+    marks the inventory vehicle SOLD in the same transaction.
     """
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Sales Invoices"], summary="Finalize Deal",
                    description="Generates invoice_number, sets status=OPEN, marks the vehicle SOLD.",
                    request=None, responses=SalesInvoiceSerializer)
+    @transaction.atomic
     def post(self, request, pk):
-        invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
-
-        if invoice.status != "DRAFT":
-            return Response(
-                {"error": {"code": "conflict", "message": "Only a DRAFT deal can be finalized.", "fields": {}}},
-                status=status.HTTP_409_CONFLICT,
-            )
-        if invoice.total_amount is None or invoice.total_amount <= 0:
-            return Response(
-                {"error": {"code": "bad_request", "message": "Deal total must be greater than zero before finalizing.", "fields": {}}},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        year = timezone.now().year
-        invoice.invoice_number = f"INV-{year}-{get_random_string(6, allowed_chars='0123456789')}"
-        invoice.sale_date = invoice.sale_date or timezone.now().date()
-        invoice.status = "OPEN"
-        invoice.recompute_totals(tax_rate=_active_tax_rate())
-        invoice.save()
-
-        mark_vehicle_sold(invoice.vehicle_id)
-
-        log_action(request.user, "UPDATE", "SalesInvoice", invoice.pk, {"status": "OPEN", "invoice_number": invoice.invoice_number})
-
+        invoice = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=pk)
+        finalize_invoice(invoice, request.user)
         return Response(SalesInvoiceSerializer(invoice).data)
 
 
 class SalesInvoiceDiscountsView(APIView):
     """POST /sales-invoices/{id}/discounts — add a line-item discount."""
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Sales Invoices"], summary="Add a line-item discount",
                    request=DiscountCreateSerializer, responses={201: OpenApiTypes.OBJECT})
+    @transaction.atomic
     def post(self, request, pk):
-        invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
+        invoice = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=pk)
         if invoice.status != "DRAFT":
             return Response(
                 {"error": {"code": "conflict", "message": "Discounts can only be added to a DRAFT deal.", "fields": {}}},
@@ -284,15 +315,20 @@ class SalesInvoiceDiscountsView(APIView):
 
         amount = data["amount"]
         if data["discount_type"] == "PERCENTAGE":
+            if data["amount"] > 100:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({"amount": "Percentage discounts cannot exceed 100%."})
             amount = (invoice.selling_price * amount / 100).quantize(invoice.selling_price)
 
+        invoice.discount_amount = invoice.discount_amount + amount
+        invoice.recompute_totals(tax_rate=_active_tax_rate())
+        if invoice.total_amount <= 0:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"amount": "Discount must leave a positive invoice total."})
         discount = Discount.objects.create(
             invoice=invoice, discount_type=data["discount_type"],
             amount=amount, reason=data.get("reason", ""),
         )
-
-        invoice.discount_amount = invoice.discount_amount + amount
-        invoice.recompute_totals(tax_rate=_active_tax_rate())
         invoice.save()
 
         return Response(
@@ -303,7 +339,7 @@ class SalesInvoiceDiscountsView(APIView):
 
 class SalesInvoicePdfView(APIView):
     """GET /sales-invoices/{id}/pdf — printable invoice."""
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Sales Invoices"], summary="Printable invoice (PDF)",
                    responses={200: OpenApiTypes.BINARY})
@@ -348,11 +384,12 @@ class SalesInvoicePdfView(APIView):
 class SalesInvoiceCancelView(APIView):
     """POST /sales-invoices/{id}/cancel — cancel a DRAFT deal only.
     Full reversal of a finalized invoice (SAL-04) is Future."""
-    permission_classes = [IsAdminOrAgent]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Sales Invoices"], summary="Cancel a DRAFT deal", request=None, responses=SalesInvoiceSerializer)
+    @transaction.atomic
     def post(self, request, pk):
-        invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
+        invoice = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=pk)
         if invoice.status != "DRAFT":
             return Response(
                 {"error": {"code": "conflict", "message": "Only a DRAFT deal can be cancelled here. Reversing a finalized invoice is not yet supported.", "fields": {}}},
@@ -360,5 +397,10 @@ class SalesInvoiceCancelView(APIView):
             )
         invoice.status = "CANCELLED"
         invoice.save(update_fields=["status", "updated_at"])
+        from inventory.models import Vehicle
+        vehicle = Vehicle.objects.select_for_update().filter(pk=invoice.vehicle_id, status="RESERVED").first()
+        if vehicle:
+            vehicle.status = "AVAILABLE"
+            vehicle.save(update_fields=["status", "updated_at"])
         log_action(request.user, "UPDATE", "SalesInvoice", invoice.pk, {"status": "CANCELLED"})
         return Response(SalesInvoiceSerializer(invoice).data)

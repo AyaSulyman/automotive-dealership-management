@@ -29,7 +29,7 @@ def build_api_url(path):
     base_url = get_api_base_url()
     if not base_url:
         raise APIConfigurationError(
-            "The FastAPI URL has not been configured yet."
+            "The backend API URL has not been configured yet."
         )
     return urljoin(f"{base_url}/", str(path).lstrip("/"))
 
@@ -53,7 +53,7 @@ def _error_details(payload, fallback):
         if isinstance(first, dict):
             return first.get("msg") or fallback, {}
 
-    return payload.get("message") or fallback, {}
+    return payload.get("message") or fallback, {key: value for key, value in payload.items() if key not in {"detail", "message"}}
 
 
 def request_json(
@@ -63,6 +63,7 @@ def request_json(
     access_token="",
     params=None,
     payload=None,
+    files=None,
 ):
     headers = {"Accept": "application/json"}
     if access_token:
@@ -76,7 +77,9 @@ def request_json(
             url=build_api_url(path),
             headers=headers,
             params=params,
-            json=payload,
+            json=payload if files is None else None,
+            data=payload if files is not None else None,
+            files=files,
             timeout=timeout,
         )
     except requests.RequestException as error:
@@ -106,3 +109,41 @@ def request_json(
         )
 
     return response_payload
+
+
+def get_all(path, *, access_token, params=None):
+    """Collect all pages, using our configured API host (never a response-supplied URL)."""
+    query = dict(params or {})
+    query["page_size"] = 500
+    results = []
+    for page in range(1, 1001):
+        query["page"] = page
+        payload = request_json("GET", path, access_token=access_token, params=query)
+        if isinstance(payload, list):
+            return payload
+        rows = payload.get("results", payload.get("data", []))
+        if not isinstance(rows, list):
+            raise APIError("The backend returned an invalid list.")
+        results.extend(rows)
+        if not payload.get("next"):
+            return results
+    raise APIError("Too many results. Narrow the search and try again.")
+
+
+def request_binary(path, *, access_token, params=None):
+    try:
+        response = requests.get(
+            build_api_url(path), params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=float(getattr(settings, "ADMS_API_TIMEOUT", 10)),
+        )
+    except requests.RequestException as error:
+        raise APIError("The backend service could not be reached.") from error
+    if not response.ok:
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+        message, fields = _error_details(payload, "The file could not be downloaded.")
+        raise APIError(message, status_code=response.status_code, field_errors=fields)
+    return response.content

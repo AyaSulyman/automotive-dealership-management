@@ -8,7 +8,7 @@
 <div class="inventory-confirm-card">
     <p class="inventory-eyebrow">Admin only</p>
     <h1>Remove {{ item_name }}?</h1>
-    <p>This action will request permanent removal from FastAPI when the backend is connected.</p>
+    <p>This permanently removes the vehicle from inventory unless it has already been sold.</p>
     <form method="post">
         {% csrf_token %}
         <a class="inventory-btn inventory-btn--outline" href="{{ back_url }}">Cancel</a>

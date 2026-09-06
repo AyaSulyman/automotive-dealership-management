@@ -16,6 +16,7 @@
         {% if edit_url and can_edit_inventory %}<a class="inventory-btn inventory-btn--primary" href="{{ edit_url }}">Edit</a>{% endif %}
     </header>
 
+    {% if document_url %}<p><a class="inventory-btn inventory-btn--primary" href="{{ document_url }}">Manage Documents</a></p>{% endif %}
     <dl class="inventory-detail-card">
         {% for label, value in detail_fields %}
             <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
@@ -23,4 +24,3 @@
     </dl>
 </div>
 {% endblock %}
-

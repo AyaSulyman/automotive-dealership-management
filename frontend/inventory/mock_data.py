@@ -2,26 +2,23 @@
 Temporary preview data for the Inventory & Procurement page.
 
 The views use this data only while ``ADMS_PREVIEW_MODE`` is enabled. Once an
-``ADMS_API_BASE_URL`` is configured, the same views call FastAPI through the
-Python service layer and keep the templates unchanged.
+``ADMS_API_BASE_URL`` is configured, the same views call the REST backend
+through the Python service layer and keep the templates unchanged.
 
-Status values follow the BRD (VIM-02) exactly:
-IN_TRANSIT, RECEIVED, UNDER_RECONDITIONING, AVAILABLE, RESERVED, SOLD, RETURNED
+Preview values mirror the backend's vehicle status and condition choices.
 """
 
 STATUS_CHOICES = [
     {'value': 'IN_TRANSIT', 'label': 'In Transit', 'style': 'badge-blue'},
-    {'value': 'RECEIVED', 'label': 'Received', 'style': 'badge-purple'},
-    {'value': 'UNDER_RECONDITIONING', 'label': 'Under Reconditioning', 'style': 'badge-amber'},
+    {'value': 'IN_STOCK', 'label': 'In Stock', 'style': 'badge-purple'},
     {'value': 'AVAILABLE', 'label': 'Available', 'style': 'badge-green'},
     {'value': 'RESERVED', 'label': 'Reserved', 'style': 'badge-amber'},
     {'value': 'SOLD', 'label': 'Sold', 'style': 'badge-gray'},
-    {'value': 'RETURNED', 'label': 'Returned', 'style': 'badge-red'},
 ]
 
 _STATUS_STYLE_BY_VALUE = {s['value']: s for s in STATUS_CHOICES}
 
-CONDITION_CHOICES = ['New', 'Used', 'Certified']
+CONDITION_CHOICES = ['NEW', 'USED']
 
 
 def get_vehicles():
@@ -34,7 +31,7 @@ def get_vehicles():
             'model': 'Malibu',
             'year': 2021,
             'trim': 'LT',
-            'condition': 'Used',
+            'condition': 'USED',
             'purchase_order': 'PO-8821',
             'status': 'AVAILABLE',
             'status_label': 'In Stock',
@@ -50,7 +47,7 @@ def get_vehicles():
             'model': 'Corolla',
             'year': 2022,
             'trim': 'SE',
-            'condition': 'Certified',
+            'condition': 'USED',
             'purchase_order': 'PO-8822',
             'status': 'IN_TRANSIT',
             'status_label': 'In Transit',
@@ -66,7 +63,7 @@ def get_vehicles():
             'model': 'Civic',
             'year': 2019,
             'trim': 'EX',
-            'condition': 'Used',
+            'condition': 'USED',
             'purchase_order': 'PO-8819',
             'status': 'SOLD',
             'status_label': 'Sold',
@@ -87,28 +84,28 @@ def get_vendors():
         {
             'id': 'VD-101',
             'name': 'Coastal Auto Auctions',
-            'contact_name': 'Rania Haddad',
+            'contact_person': 'Rania Haddad',
             'phone': '+961 1 555 210',
             'email': 'rania@coastalauctions.com',
-            'payment_terms': 'Net 15',
+            'address': '18 Harbor Road',
             'is_active': True,
         },
         {
             'id': 'VD-102',
             'name': 'Midway Wholesale Motors',
-            'contact_name': 'Omar Fakhoury',
+            'contact_person': 'Omar Fakhoury',
             'phone': '+961 1 555 482',
             'email': 'omar@midwaywholesale.com',
-            'payment_terms': 'Net 30',
+            'address': '55 Market Street',
             'is_active': True,
         },
         {
             'id': 'VD-103',
             'name': 'Northline Fleet Sourcing',
-            'contact_name': 'Dana Saab',
+            'contact_person': 'Dana Saab',
             'phone': '+961 1 555 903',
             'email': 'dana@northlinefleet.com',
-            'payment_terms': 'Due on Receipt',
+            'address': '9 Northline Avenue',
             'is_active': False,
         },
     ]

@@ -1,1 +1,1 @@
-"""Server-side clients for the AutoSource FastAPI service."""
+"""Server-side clients for the AutoSource REST API."""

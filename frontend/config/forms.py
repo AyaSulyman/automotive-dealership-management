@@ -41,7 +41,7 @@ class EmployeeForm(forms.Form):
         ("", "Select a role"),
         ("admin", "Admin"),
         ("agent", "Agent"),
-        ("accountant", "Accountant"),
+        ("accountant", "Finance"),
     )
 
     name = forms.CharField(

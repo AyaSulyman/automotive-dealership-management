@@ -14,7 +14,7 @@
         </div>
         <div class="heading-actions">
             <a class="business-btn business-btn--outline" href="{% url 'crm_finance:payments' %}">Back to Payments</a>
-            <a class="business-btn business-btn--primary" href="{% url 'crm_finance:payment-receipt' payment.id %}?print=1">Printable Receipt</a>
+            <a class="business-btn business-btn--primary" href="{% url 'crm_finance:payment-receipt-pdf' payment.id %}">Download PDF</a>
         </div>
     </header>
 

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -10,17 +12,23 @@ from common.permissions import IsAdmin, IsAdminOrAccountant
 from payments.models import Payment
 from sales.models import SalesInvoice
 
-from .integrations import get_inventory_snapshot, get_inventory_cost_basis_split, get_work_order_costs_mtd, get_vehicle_cost_basis
+from .integrations import (
+    get_inventory_cost_basis_split,
+    get_inventory_snapshot,
+    get_vehicle_financial_data,
+    get_work_order_costs_mtd,
+)
 from .models import AuditLog
 from .serializers import AuditLogSerializer, RecentInvoiceSerializer, RecentPaymentSerializer
 
 
 class DashboardOverviewView(APIView):
+    permission_classes = [IsAdmin]
+
     """
     GET /dashboard/overview
-    Aggregate KPI cards. total_vehicles / status_breakdown are null until
-    Person 1's inventory app lands (see reports/integrations.py) -- every
-    other figure here is fully computed from Person 2's own data.
+    Aggregate dashboard KPI cards from the shared sales, payments, customer,
+    and inventory data.
     """
 
     @extend_schema(tags=["Dashboard"], summary="Aggregate KPI overview", responses={200: OpenApiTypes.OBJECT})
@@ -30,7 +38,7 @@ class DashboardOverviewView(APIView):
 
         invoices_ytd = SalesInvoice.objects.filter(
             sale_date__gte=year_start, sale_date__lte=today,
-        ).exclude(status="CANCELLED")
+        ).exclude(status__in=["CANCELLED", "DRAFT"])
         payments_ytd = Payment.objects.filter(paid_at__date__gte=year_start, paid_at__date__lte=today)
 
         sales_total_ytd = invoices_ytd.aggregate(total=models.Sum("total_amount"))["total"] or 0
@@ -38,9 +46,16 @@ class DashboardOverviewView(APIView):
         outstanding_balance = SalesInvoice.objects.exclude(
             status__in=["CANCELLED", "DRAFT"],
         ).aggregate(total=models.Sum("balance_due"))["total"] or 0
-        active_customer_count = SalesInvoice.objects.exclude(
-            status="CANCELLED",
-        ).values("customer_id").distinct().count()
+        try:
+            from customers.models import Customer
+
+            active_customer_count = Customer.objects.filter(
+                status__in=["ACTIVE", "VIP"]
+            ).count()
+        except (ImportError, RuntimeError):
+            active_customer_count = SalesInvoice.objects.exclude(
+                status="CANCELLED",
+            ).values("customer_id").distinct().count()
 
         payload = {
             "sales_invoice_total_ytd": str(sales_total_ytd),
@@ -55,12 +70,14 @@ class DashboardOverviewView(APIView):
 
 @extend_schema_view(get=extend_schema(tags=["Dashboard"], summary="Recent sales invoices"))
 class RecentInvoicesView(ListAPIView):
+    permission_classes = [IsAdmin]
+
     """GET /dashboard/recent-invoices?limit=5"""
     serializer_class = RecentInvoiceSerializer
 
     def get_queryset(self):
         limit = int(self.request.query_params.get("limit", 5))
-        return SalesInvoice.objects.exclude(status="CANCELLED").order_by("-created_at")[:limit]
+        return SalesInvoice.objects.exclude(status__in=["CANCELLED", "DRAFT"]).order_by("-created_at")[:limit]
 
     def list(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_queryset(), many=True)
@@ -69,6 +86,8 @@ class RecentInvoicesView(ListAPIView):
 
 @extend_schema_view(get=extend_schema(tags=["Dashboard"], summary="Recent payments"))
 class RecentPaymentsView(ListAPIView):
+    permission_classes = [IsAdmin]
+
     """GET /dashboard/recent-payments?limit=5"""
     serializer_class = RecentPaymentSerializer
 
@@ -85,9 +104,8 @@ class FinanceOverviewView(APIView):
     """
     GET /reports/finance/overview
     "Overview" tab: Total Sales MTD, Payments Received (MTD), Outstanding
-    Balance, Current Inventory Cost Basis (New/Used split), Work Order
-    Costs MTD. The last two are inventory/reconditioning figures Person 2
-    doesn't own the data for -- null until Person 1's catalog app lands.
+    Balance, Current Inventory Cost Basis (New/Used split), and recorded
+    reconditioning costs for vehicles added this month.
     """
     permission_classes = [IsAdminOrAccountant]
 
@@ -98,11 +116,14 @@ class FinanceOverviewView(APIView):
 
         sales_mtd = SalesInvoice.objects.filter(
             sale_date__gte=month_start, sale_date__lte=today,
-        ).exclude(status="CANCELLED").aggregate(total=models.Sum("total_amount"))["total"] or 0
+        ).exclude(status__in=["CANCELLED", "DRAFT"]).aggregate(total=models.Sum("total_amount"))["total"] or 0
 
-        payments_mtd = Payment.objects.filter(
+        payments_mtd_queryset = Payment.objects.filter(
             paid_at__date__gte=month_start, paid_at__date__lte=today,
-        ).aggregate(total=models.Sum("amount"))["total"] or 0
+        )
+        payments_mtd = payments_mtd_queryset.aggregate(
+            total=models.Sum("amount")
+        )["total"] or 0
 
         outstanding_balance = SalesInvoice.objects.exclude(
             status__in=["CANCELLED", "DRAFT"],
@@ -111,6 +132,7 @@ class FinanceOverviewView(APIView):
         payload = {
             "total_sales_mtd": str(sales_mtd),
             "payments_received_mtd": str(payments_mtd),
+            "payment_transaction_count": payments_mtd_queryset.count(),
             "outstanding_balance": str(outstanding_balance),
             "work_order_costs_mtd": get_work_order_costs_mtd(),
         }
@@ -121,9 +143,8 @@ class FinanceOverviewView(APIView):
 class VehicleFinancialSummaryView(APIView):
     """
     GET /reports/vehicle-financial-summary?vehicle_id=
-    Per-vehicle cost basis vs. sale price (ACC-01). cost_basis is null
-    until Person 1's catalog app lands; everything sale-side (price,
-    margin against what we know) is fully computed.
+    Per-vehicle cost basis vs. sale price (ACC-01), resolved by database id
+    or VIN.
     """
     permission_classes = [IsAdminOrAccountant]
 
@@ -136,20 +157,29 @@ class VehicleFinancialSummaryView(APIView):
                 status=400,
             )
 
-        invoice = SalesInvoice.objects.filter(vehicle_id=vehicle_id).exclude(status="CANCELLED").order_by("-created_at").first()
-        cost_basis = get_vehicle_cost_basis(vehicle_id)
+        vehicle = get_vehicle_financial_data(vehicle_id)
+        if vehicle is None:
+            return Response(
+                {"error": {"code": "not_found", "message": "Vehicle not found.", "fields": {}}},
+                status=404,
+            )
 
-        sale_price = str(invoice.total_amount) if invoice else None
+        invoice = SalesInvoice.objects.filter(
+            vehicle_id=vehicle["vehicle_id"]
+        ).exclude(status__in=["CANCELLED", "DRAFT"]).order_by("-created_at").first()
+        cost_basis = Decimal(vehicle["total_cost_basis"])
+
+        sale_price = str(invoice.selling_price) if invoice else None
         gross_profit = None
-        if invoice and cost_basis is not None:
-            gross_profit = str(invoice.total_amount - cost_basis)
+        if invoice:
+            gross_profit = str(invoice.selling_price - cost_basis)
 
         return Response({
-            "vehicle_id": int(vehicle_id),
+            **vehicle,
             "invoice_id": invoice.id if invoice else None,
             "invoice_status": invoice.status if invoice else None,
             "sale_price": sale_price,
-            "cost_basis": str(cost_basis) if cost_basis is not None else None,
+            "cost_basis": str(cost_basis),
             "gross_profit": gross_profit,
         })
 

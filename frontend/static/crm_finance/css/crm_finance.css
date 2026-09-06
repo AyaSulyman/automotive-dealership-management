@@ -420,6 +420,7 @@
 }
 
 .status-badge--cash,
+.status-badge--ach,
 .status-badge--paid,
 .status-badge--active,
 .status-badge--payment {
@@ -439,9 +440,16 @@
     background: #eee8ff;
 }
 
-.status-badge--pending {
+.status-badge--pending,
+.status-badge--lead,
+.status-badge--check {
     color: #9a5700;
     background: #fff1c2;
+}
+
+.status-badge--vip {
+    color: #6632b8;
+    background: #f0e6ff;
 }
 
 .server-form {

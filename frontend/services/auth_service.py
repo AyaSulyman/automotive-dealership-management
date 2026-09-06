@@ -44,6 +44,15 @@ def current_user(access_token):
     return request_json("GET", "/auth/me", access_token=access_token)
 
 
+def logout(access_token, refresh_token):
+    if access_token and refresh_token:
+        return request_json(
+            "POST", "/auth/logout", access_token=access_token,
+            payload={"refresh_token": refresh_token},
+        )
+    return {}
+
+
 def store_login(request, payload, *, remember=False):
     data = _unwrap(payload)
     access_token = _token(data, "access_token", "access")

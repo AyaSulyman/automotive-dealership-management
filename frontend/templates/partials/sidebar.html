@@ -14,6 +14,7 @@
     </div>
 
     <nav class="sidebar-nav">
+        {% if user_identity.role == 'admin' %}
         <a class="sidebar-link{% if active_page == 'dashboard' %} is-active{% endif %}"
            href="{% url 'dashboard' %}"
            {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
@@ -26,6 +27,8 @@
             <span>Dashboard</span>
         </a>
 
+        {% endif %}
+        {% if user_identity.role == 'admin' or user_identity.role == 'agent' %}
         <a class="sidebar-link{% if '/inventory/' in request.path and '/deals/' not in request.path %} is-active{% endif %}"
            href="{% url 'inventory:inventory' %}"
            {% if '/inventory/' in request.path and '/deals/' not in request.path %}aria-current="page"{% endif %}>
@@ -48,8 +51,10 @@
             <span>Customers</span>
         </a>
 
+        {% endif %}
+        {% if user_identity.role == 'admin' or user_identity.role == 'accountant' %}
         <a class="sidebar-link{% if '/deals/' in request.path %} is-active{% endif %}"
-           href="{% url 'inventory:deal-add' %}"
+           href="{% url 'inventory:deal-list' %}"
            {% if '/deals/' in request.path %}aria-current="page"{% endif %}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M3 4h8l10 10-7 7L4 11V4Z"/>
@@ -58,7 +63,6 @@
             <span>Sales &amp; Trade-Ins</span>
         </a>
 
-        {% if user_identity.role == 'admin' or user_identity.role == 'accountant' %}
         <a class="sidebar-link{% if active_page == 'payments' %} is-active{% endif %}"
            href="{% url 'crm_finance:payments' %}"
            {% if active_page == 'payments' %}aria-current="page"{% endif %}>

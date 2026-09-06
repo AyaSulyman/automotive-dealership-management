@@ -10,7 +10,7 @@ from rest_framework.permissions import BasePermission
 
 
 def _user_roles(user):
-    if not user or not user.is_authenticated:
+    if not user or not user.is_authenticated or not user.is_active:
         return set()
     if user.is_superuser:
         return {"admin", "agent", "accountant"}

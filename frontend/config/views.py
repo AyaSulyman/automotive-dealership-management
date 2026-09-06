@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import EmployeeForm, LoginForm
+from services.access import home_name, denied
 from services import auth_service, dashboard_service, mock_data
 from services.api_client import APIError, api_is_configured
 from services.presenters import (
@@ -86,12 +87,24 @@ def _employee_page_context(user, form, *, mode, employee_id=None):
     }
 
 
+def _employee_api_payload(request, form):
+    payload = form.api_payload()
+    role_name = payload.pop("role")
+    payload["role_id"] = dashboard_service.role_id_for(
+        auth_service.access_token(request), role_name
+    )
+    return payload
+
+
 @require_http_methods(["GET", "POST"])
 def login_page(request):
     if request.method == "GET" and request.session.get(
         auth_service.ACCESS_TOKEN_SESSION_KEY
     ):
-        return redirect("dashboard")
+        try:
+            return redirect(home_name(auth_service.verified_user(request)))
+        except (APIError, auth_service.AuthenticationRequired):
+            auth_service.clear_login(request)
 
     form = LoginForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
@@ -105,9 +118,11 @@ def login_page(request):
                 payload,
                 remember=form.cleaned_data["remember_me"],
             )
-            return redirect(
-                getattr(settings, "LOGIN_SUCCESS_URL", reverse("dashboard"))
-            )
+            user = auth_service.verified_user(request)
+            if normalize_role(user.get("role")) not in ALLOWED_ROLES:
+                auth_service.clear_login(request)
+                raise APIError("Your account has no assigned workspace role.")
+            return redirect(home_name(user))
         except APIError as error:
             _add_api_errors(form, error)
 
@@ -129,6 +144,9 @@ def dashboard_page(request):
         return _redirect_to_login(
             request, "Your account does not have dashboard access."
         )
+
+    if role != "admin":
+        return redirect(home_name(user))
 
     employee_search = request.GET.get("employee_search", "").strip()
     dashboard_errors = []
@@ -229,7 +247,7 @@ def employee_add_page(request):
 
     if not is_admin:
         messages.error(request, "Only an Admin can manage employees.")
-        return redirect("dashboard")
+        return denied(request, user)
 
     form = EmployeeForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
@@ -247,7 +265,8 @@ def employee_add_page(request):
 
         try:
             dashboard_service.create_employee(
-                auth_service.access_token(request), form.api_payload()
+                auth_service.access_token(request),
+                _employee_api_payload(request, form),
             )
             messages.success(request, "Employee added successfully.")
             return HttpResponseRedirect(
@@ -281,7 +300,7 @@ def employee_edit_page(request, employee_id):
 
     if not is_admin:
         messages.error(request, "Only an Admin can manage employees.")
-        return redirect("dashboard")
+        return denied(request, user)
 
     employee = None
     if preview_mode:
@@ -348,7 +367,7 @@ def employee_edit_page(request, employee_id):
             dashboard_service.update_employee(
                 auth_service.access_token(request),
                 employee_id,
-                form.api_payload(),
+                _employee_api_payload(request, form),
             )
             messages.success(request, "Employee updated successfully.")
             return HttpResponseRedirect(
@@ -374,3 +393,16 @@ def employee_edit_page(request, employee_id):
             employee_id=employee_id,
         ),
     )
+
+@require_http_methods(["POST"])
+def logout_page(request):
+    try:
+        auth_service.logout(
+            auth_service.access_token(request),
+            request.session.get(auth_service.REFRESH_TOKEN_SESSION_KEY, ""),
+        )
+    except APIError:
+        pass
+    request.session.flush()
+    messages.success(request, "You have signed out.")
+    return redirect("login-page")

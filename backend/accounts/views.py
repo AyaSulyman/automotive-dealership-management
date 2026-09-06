@@ -32,7 +32,7 @@ def _user_for_refresh(refresh):
     """Return the User a refresh token belongs to (raises on invalid/blacklisted)."""
     refresh.check_blacklist()
     try:
-        return User.objects.get(pk=refresh["user_id"])
+        return User.objects.get(pk=refresh["user_id"], is_active=True)
     except User.DoesNotExist:
         raise NotFound(detail="User no longer exists.")
 
@@ -234,6 +234,11 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
+        if user.pk == request.user.pk:
+            return Response(
+                {"error": {"code": "bad_request", "message": "You cannot deactivate your own account.", "fields": {}}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         user.is_active = False
         user.save(update_fields=["is_active"])
         return Response(

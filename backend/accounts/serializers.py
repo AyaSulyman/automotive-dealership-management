@@ -2,6 +2,8 @@
 Serializers for Person 1's identity domain (Authentication / Users & Roles).
 """
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import Branch, Role, UserProfile
@@ -42,20 +44,22 @@ class UserDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_role(self, user):
+    def get_role(self, user) -> str | None:
+        if user.is_superuser:
+            return "admin"
         profile = get_profile(user)
         if profile is not None and profile.role is not None:
             return profile.role.name
         groups = list(user.groups.values_list("name", flat=True))
         return groups[0] if groups else None
 
-    def get_branch(self, user):
+    def get_branch(self, user) -> str | None:
         profile = get_profile(user)
         if profile is not None and profile.branch is not None:
             return profile.branch.name
         return None
 
-    def get_phone(self, user):
+    def get_phone(self, user) -> str:
         profile = get_profile(user)
         return profile.phone if profile is not None else ""
 
@@ -96,9 +100,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UserCreateSerializer(serializers.Serializer):
     """Admin creates an employee: Django User + UserProfile in one step.
 
-    `username` defaults to the email local part; `name` is shorthand for
-    first_name. password optional — defaults to a known demo password so a
-    freshly created account can be logged into immediately.
+    `username` defaults to the email address; `name` is shorthand for
+    first_name. A temporary password is always supplied explicitly.
     """
 
     name = serializers.CharField(max_length=150, required=False, allow_blank=True)
@@ -106,7 +109,7 @@ class UserCreateSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     username = serializers.CharField(max_length=150, required=False)
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, required=False, default="changeme123")
+    password = serializers.CharField(write_only=True, min_length=8)
     phone = serializers.CharField(max_length=30, required=False, allow_blank=True)
     role_id = serializers.IntegerField()
     branch_id = serializers.IntegerField(required=False, allow_null=True)
@@ -118,7 +121,7 @@ class UserCreateSerializer(serializers.Serializer):
         return value
 
     def validate_role_id(self, value):
-        if not Role.objects.filter(pk=value).exists():
+        if not Role.objects.filter(pk=value, name__in={"admin", "agent", "accountant"}).exists():
             raise serializers.ValidationError("Invalid role_id.")
         return value
 
@@ -133,9 +136,13 @@ class UserCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("first_name (or name) is required.")
         attrs["first_name"] = first
         if not attrs.get("username"):
-            attrs["username"] = attrs["email"].split("@")[0]
+            attrs["username"] = attrs["email"].lower()
+        if User.objects.filter(username__iexact=attrs["username"]).exists():
+            raise serializers.ValidationError({"email": "An account with this login already exists."})
+        validate_password(attrs["password"])
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         username = validated_data.pop("username")
         email = validated_data.pop("email")
@@ -145,7 +152,7 @@ class UserCreateSerializer(serializers.Serializer):
         is_active = validated_data.pop("is_active", True)
         phone = validated_data.pop("phone", "")
         role_id = validated_data.pop("role_id")
-        branch_id = validated_data.pop("branch_id")
+        branch_id = validated_data.pop("branch_id", None)
 
         user = User.objects.create(
             username=username, email=email, first_name=first_name,
@@ -172,7 +179,7 @@ class UserUpdateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     email = serializers.EmailField(required=False)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
     phone = serializers.CharField(max_length=30, required=False, allow_blank=True)
     role_id = serializers.IntegerField(required=False, allow_null=True)
     branch_id = serializers.IntegerField(required=False, allow_null=True)
@@ -185,7 +192,9 @@ class UserUpdateSerializer(serializers.Serializer):
         return value
 
     def validate_role_id(self, value):
-        if value is not None and not Role.objects.filter(pk=value).exists():
+        if value is not None and not Role.objects.filter(
+            pk=value, name__in={"admin", "agent", "accountant"},
+        ).exists():
             raise serializers.ValidationError("Invalid role_id.")
         return value
 
@@ -194,6 +203,12 @@ class UserUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid branch_id.")
         return value
 
+    def validate_password(self, value):
+        if value:
+            validate_password(value, self.context.get("user"))
+        return value
+
+    @transaction.atomic
     def update(self, user, validated_data):
         if "name" in validated_data and validated_data["name"]:
             user.first_name = validated_data.pop("name")

@@ -63,7 +63,7 @@ def normalize_role(value):
 
 def display_role(value):
     role = normalize_role(value)
-    return role.title() if role else "Employee"
+    return "Finance" if role == "accountant" else role.title() if role else "Employee"
 
 
 def user_name(user):
@@ -93,7 +93,12 @@ def user_identity(user):
 def _status_counts(overview):
     status = first_value(
         overview,
-        ("vehicle_status", "vehicle_status_split", "vehicles_by_status"),
+        (
+            "vehicle_status",
+            "vehicle_status_split",
+            "vehicles_by_status",
+            "status_breakdown",
+        ),
         {},
     )
     if not isinstance(status, dict):
@@ -147,6 +152,7 @@ def overview_context(payload):
                 overview,
                 (
                     "total_sales_invoice_ytd",
+                    "sales_invoice_total_ytd",
                     "sales_invoice_ytd",
                     "total_sales_ytd",
                 ),
@@ -194,6 +200,9 @@ def invoice_rows(payload):
         customer = invoice.get("customer")
         if isinstance(customer, dict):
             customer = user_name(customer)
+        if not customer:
+            customer_id = invoice.get("customer_id")
+            customer = f"Customer #{customer_id}" if customer_id else "—"
         rows.append(
             {
                 "number": first_value(
@@ -207,7 +216,9 @@ def invoice_rows(payload):
                 ),
                 "date": _date_value(
                     first_value(
-                        invoice, ("invoice_date", "date", "created_at"), None
+                        invoice,
+                        ("invoice_date", "sale_date", "date", "created_at"),
+                        None,
                     )
                 ),
             }

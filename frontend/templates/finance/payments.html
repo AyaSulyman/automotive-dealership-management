@@ -13,7 +13,7 @@
             <p>Manage payments, installment schedules, and financing agreements.</p>
         </div>
         <div class="heading-actions">
-            <a class="business-btn business-btn--outline" href="{% url 'crm_finance:payments-export' %}">Export Payments</a>
+            <a class="business-btn business-btn--outline" href="{% url 'crm_finance:payments-export' %}?invoice_id={{ selected_invoice|urlencode }}&amp;method={{ selected_method|urlencode }}&amp;date_from={{ date_from|urlencode }}&amp;date_to={{ date_to|urlencode }}">Export Payments</a>
             {% if can_record_payment %}<a class="business-btn business-btn--primary" href="{% url 'crm_finance:payment-record' %}"><span aria-hidden="true">+</span> Record Payment</a>{% endif %}
         </div>
     </header>
@@ -48,6 +48,8 @@
                         <option value="CASH"{% if selected_method == 'CASH' %} selected{% endif %}>Cash</option>
                         <option value="CARD"{% if selected_method == 'CARD' %} selected{% endif %}>Card</option>
                         <option value="TRANSFER"{% if selected_method == 'TRANSFER' %} selected{% endif %}>Bank Transfer</option>
+                        <option value="CHECK"{% if selected_method == 'CHECK' %} selected{% endif %}>Check</option>
+                        <option value="ACH"{% if selected_method == 'ACH' %} selected{% endif %}>ACH</option>
                     </select>
                 </label>
                 <label><span>From</span><input class="business-input" name="date_from" type="date" value="{{ date_from }}"></label>
@@ -113,4 +115,3 @@
     </section>
 </div>
 {% endblock %}
-
