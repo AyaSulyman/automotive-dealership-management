@@ -70,7 +70,7 @@
 
     <section class="dashboard-tables" aria-label="Recent activity">
         <article class="data-card">
-            <header class="data-card__header"><h2>Recent Sales Invoices</h2></header>
+            <header class="data-card__header"><h2>Recent Sales Invoices</h2><a class="link-button" href="{% url 'inventory:deal-list' %}">View All</a></header>
             <div class="table-scroll"><table><thead><tr><th>Invoice #</th><th>Customer</th><th>Amount</th><th>Date</th></tr></thead><tbody>
                 {% for invoice in recent_invoices %}<tr><td>{{ invoice.number }}</td><td>{{ invoice.customer }}</td><td>{{ invoice.amount }}</td><td>{{ invoice.date|date:"M j, Y"|default:invoice.date }}</td></tr>
                 {% empty %}<tr><td class="table-empty" colspan="4">No recent invoices found.</td></tr>{% endfor %}

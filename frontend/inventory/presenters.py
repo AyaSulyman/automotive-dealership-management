@@ -5,24 +5,22 @@ from services.presenters import first_value, list_results, unwrap
 
 STATUS_LABELS = {
     "IN_TRANSIT": "In Transit",
+    "IN_STOCK": "In Stock",
     "RECEIVED": "Received",
-    "UNDER_RECONDITIONING": "Under Reconditioning",
     "AVAILABLE": "Available",
     "RESERVED": "Reserved",
     "SOLD": "Sold",
-    "RETURNED": "Returned",
     "PENDING": "Pending",
     "CLOSED": "Closed",
 }
 
 STATUS_STYLES = {
     "IN_TRANSIT": "badge-blue",
+    "IN_STOCK": "badge-purple",
     "RECEIVED": "badge-purple",
-    "UNDER_RECONDITIONING": "badge-amber",
     "AVAILABLE": "badge-green",
     "RESERVED": "badge-amber",
     "SOLD": "badge-gray",
-    "RETURNED": "badge-red",
     "PENDING": "badge-amber",
     "CLOSED": "badge-gray",
 }
@@ -73,8 +71,9 @@ def normalize_vehicle(vehicle):
         "model": vehicle.get("model") or "—",
         "year": vehicle.get("year") or "—",
         "trim": vehicle.get("trim") or "",
-        "condition": vehicle.get("condition") or "—",
+        "condition": str(vehicle.get("condition") or "—").title(),
         "purchase_order": purchase_order
+        or vehicle.get("po_number")
         or vehicle.get("purchase_order_id")
         or "—",
         "status": status,
@@ -84,6 +83,11 @@ def normalize_vehicle(vehicle):
         "transport_cost_display": money(transport),
         "recon_cost_display": money(recon),
         "cost_basis_display": money(cost_basis),
+        "selling_price_display": (
+            money(vehicle.get("selling_price"))
+            if vehicle.get("selling_price") not in (None, "")
+            else "Not set"
+        ),
     }
 
 
@@ -95,10 +99,12 @@ def normalize_vendor(vendor):
         **vendor,
         "id": first_value(vendor, ("id", "vendor_id"), "—"),
         "name": vendor.get("name") or "—",
-        "contact_name": vendor.get("contact_name") or "—",
+        "contact_person": vendor.get("contact_person")
+        or vendor.get("contact_name")
+        or "—",
         "phone": vendor.get("phone") or "—",
         "email": vendor.get("email") or "—",
-        "payment_terms": vendor.get("payment_terms") or "—",
+        "address": vendor.get("address") or "—",
         "is_active": active,
         "status_label": "Active" if active else "Inactive",
         "status_style": "badge-green" if active else "badge-gray",
@@ -112,11 +118,14 @@ def normalize_purchase_order(purchase_order):
     if isinstance(vendor, dict):
         vendor = first_value(vendor, ("name", "vendor_name", "id"), "—")
     status = str(purchase_order.get("status") or "").upper()
+    internal_id = first_value(purchase_order, ("id",), "")
+    po_number = first_value(
+        purchase_order, ("po_number", "number"), internal_id or "—"
+    )
     return {
         **purchase_order,
-        "id": first_value(
-            purchase_order, ("id", "po_number", "number"), "—"
-        ),
+        "id": internal_id or po_number,
+        "number": po_number,
         "vendor": vendor
         or purchase_order.get("vendor_name")
         or purchase_order.get("vendor_id")
@@ -143,4 +152,3 @@ def page_results(payload, normalizer, *, requested_page=1, page_size=10):
         has_previous = requested_page > 1
         has_next = requested_page * page_size < count
     return rows, count, has_previous, has_next
-

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Vehicle Intake - AutoSource{% endblock %}
+{% block title %}{{ form_title }} - AutoSource{% endblock %}
 
 {% block page_styles %}
 <style>
@@ -37,7 +37,7 @@
     border-radius: var(--radius-md);
     cursor: pointer;
     text-decoration: none;
-    transition: background 150s ease, border-color 150s ease;
+    transition: background 150ms ease, border-color 150s ease;
   }
   .btn-outline {
     background: var(--surface);
@@ -204,135 +204,26 @@
 </style>
 {% endblock %}
 
+
 {% block content %}
 <div class="intake-header">
-  <div>
-    <h1>Vehicle Intake</h1>
-    <p>Add a new vehicle to inventory or edit existing intake details.</p>
-  </div>
-  <div class="intake-actions">
-    <a href="#" class="btn btn-outline">Cancel</a>
-    
-    <button type="submit" form="vehicleIntakeForm" class="btn btn-primary">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-      Save Vehicle
-    </button>
-  </div>
+  <div><h1>{{ form_title }}</h1><p>{{ form_description }}</p></div>
+  <div class="intake-actions"><a href="{{ cancel_url }}" class="btn btn-outline">Cancel</a><button type="submit" form="intakeForm" class="btn btn-primary">{{ submit_label }}</button></div>
 </div>
-
-<form id="vehicleIntakeForm" method="POST" enctype="multipart/form-data">
-  {% csrf_token %}
-  
-  <div class="intake-grid">
-    
-    <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-        Core Information
-      </div>
-
-      <div class="form-grid">
-        <!-- VIN -->
-        <div class="form-group full-width">
-          <label for="vin">VIN (Vehicle Identification Number)</label>
-          <input type="text" id="vin" name="vin" placeholder="ENTER 17-CHARACTER VIN" required>
-        </div>
-
-        <!-- Make -->
-        <div class="form-group">
-          <label for="make">Make</label>
-          <input type="text" id="make" name="make" placeholder="e.g. Toyota" required>
-        </div>
-
-        <!-- Model -->
-        <div class="form-group">
-          <label for="model">Model</label>
-          <input type="text" id="model" name="model" placeholder="e.g. Corolla" required>
-        </div>
-
-        <!-- Year -->
-        <div class="form-group">
-          <label for="year">Year</label>
-          <input type="number" id="year" name="year" placeholder="2026" required>
-        </div>
-
-        <!-- Condition -->
-        <div class="form-group">
-          <label for="condition">Condition</label>
-          <select id="condition" name="condition">
-            <option value="New">New</option>
-            <option value="Used" selected>Used</option>
-            <option value="Certified Pre-Owned">Certified Pre-Owned</option>
-          </select>
-        </div>
-
-        <!-- Purchase Order -->
-        <div class="form-group">
-          <label for="purchase_order">Purchase Order</label>
-          <input type="text" id="purchase_order" name="purchase_order" placeholder="PO Number">
-        </div>
-
-        <!-- Acquisition Cost -->
-        <div class="form-group">
-          <label for="acquisition_cost">Acquisition Cost</label>
-          <input type="text" id="acquisition_cost" name="acquisition_cost" placeholder="$ 0.00">
-        </div>
-
-        <!-- List Price -->
-        <div class="form-group">
-          <label for="list_price">List Price</label>
-          <input type="text" id="list_price" name="list_price" placeholder="$ 0.00">
-        </div>
-
-       
-        <div class="form-group">
-          <label for="status">Current Status</label>
-          <select id="status" name="status">
-            <option value="AVAILABLE" selected>Available</option>
-            <option value="IN_TRANSIT">In Transit</option>
-            <option value="SOLD">Sold</option>
-            <option value="PENDING">Pending</option>
-          </select>
-        </div>
-      </div>
+<div class="intake-grid">
+  <form id="intakeForm" method="post" class="card">{% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="card-title">{{ form_title }}</div><div class="form-grid">
+    {% for field in form %}<div class="form-group">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>{% endfor %}
     </div>
-
-    
-    <div class="card">
-      <div class="card-header-flex" style="border:none; margin:0; padding:0 0 16px 0;">
-        <span style="font-size: 1.1rem; font-weight: 750; color: var(--navy-950);">Documents</span>
-        <button type="button" class="btn-icon-add" title="Add Document">+</button>
-      </div>
-
-      <div class="upload-box">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--blue-600)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        <p>Drag & Drop or <a href="#">Browse</a></p>
-        <p style="font-size: 0.75rem; color: var(--ink-500); margin-top: 4px;">Upload Bill of Sale, Title, or Inspection Report</p>
-      </div>
-
-      
-      <div class="doc-item">
-        <div class="doc-info">
-          <span>📄</span>
-          <div>
-            Bill_of_Sale_signed.pdf
-            <small>BILL_OF_SALE • 1.2 MB</small>
-          </div>
-        </div>
-        <button type="button" class="icon-delete" title="Delete">🗑️</button>
-      </div>
-
-      <div class="doc-item">
-        <div class="doc-info">
-          <span>🖼️</span>
-          <div>
-            Front_Left_Damage.jpg
-            <small>CONDITION_PHOTO • 3.4 MB</small>
-          </div>
-        </div>
-        <button type="button" class="icon-delete" title="Delete">🗑️</button>
-      </div>
-    </div>
-  </div>
-</form>
+  </form>
+  <aside class="card">
+    {% if active_tab == 'vehicles' %}
+      <h2 class="card-title">Vehicle documents</h2>
+      {% if document_url %}<p>Upload and manage this vehicle's documents.</p><a class="btn btn-outline" href="{{ document_url }}">Manage Documents</a>
+      {% else %}<p>Save the vehicle first. Open its details to upload documents or photos.</p>{% endif %}
+      <p>Total cost basis is calculated from acquisition, transport, and reconditioning costs.</p>
+    {% else %}<h2 class="card-title">Vendor information</h2><p>Save the contact details used for procurement.</p>{% endif %}
+  </aside>
+</div>
 {% endblock %}

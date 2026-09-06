@@ -6,6 +6,7 @@ from .views import (
     employee_add_page,
     employee_edit_page,
     login_page,
+    logout_page,
 )
 
 
@@ -13,6 +14,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", login_page, name="login"),
     path("login/", login_page, name="login-page"),
+    path("logout/", logout_page, name="logout"),
     path("dashboard/", dashboard_page, name="dashboard"),
     path(
         "dashboard/employees/add/",

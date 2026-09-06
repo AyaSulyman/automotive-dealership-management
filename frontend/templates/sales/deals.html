@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Sales &amp; Trade-Ins | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'crm_finance/css/crm_finance.css' %}"><link rel="stylesheet" href="{% static 'sales/css/sales.css' %}">{% endblock %}
+{% block content %}
+<div class="business-page">
+<header class="business-heading"><div><p class="business-eyebrow">Sales operations</p><h1>Sales &amp; Trade-Ins</h1><p>Manage deal drafts and finalized invoices.</p></div><a class="business-btn business-btn--primary" href="{% url 'inventory:deal-add' %}">Create New Deal</a></header>
+{% if load_error %}<p role="alert">{{ load_error }}</p>{% endif %}
+<section class="business-card"><form method="get" class="business-toolbar business-toolbar--filters">
+  <label for="deal-search"><span>Invoice number</span></label><input id="deal-search" class="business-input" name="search" value="{{ search }}" type="search">
+  <label for="deal-status"><span>Status</span></label><select id="deal-status" class="business-select" name="status">
+    <option value="">All statuses</option>
+    <option value="DRAFT" {% if status == 'DRAFT' %}selected{% endif %}>Draft</option>
+    <option value="OPEN" {% if status == 'OPEN' %}selected{% endif %}>Open</option>
+    <option value="PAID" {% if status == 'PAID' %}selected{% endif %}>Paid</option>
+    <option value="CANCELLED" {% if status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+  </select><button class="business-btn business-btn--outline">Apply</button>
+</form>
+<div class="business-table-wrap">
+<table class="business-table"><thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th>Status</th><th>Total</th><th>Balance</th><th>Actions</th></tr></thead>
+<tbody>{% for invoice in invoices %}<tr>
+<td>{{ invoice.invoice_number|default:"Draft" }}{% if not invoice.invoice_number %} #{{ invoice.id }}{% endif %}</td><td>{{ invoice.customer_name }}</td><td>{{ invoice.vehicle_name }}</td><td>{{ invoice.status }}</td>
+<td>&#36;{{ invoice.total_amount|floatformat:2 }}</td><td>&#36;{{ invoice.balance_due|floatformat:2 }}</td><td><a href="{% url 'inventory:deal-invoice' invoice.id %}">View</a>{% if invoice.status == 'DRAFT' %} · <a href="{% url 'inventory:deal-edit' invoice.id %}">Edit</a>{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="7">No matching deals.</td></tr>{% endfor %}</tbody></table>
+<p>{{ total }} deal{{ total|pluralize }} · Page {{ page }}</p>
+{% if previous_page %}<a href="?page={{ previous_page }}&amp;search={{ search|urlencode }}&amp;status={{ status|urlencode }}">Previous</a>{% endif %}
+{% if next_page %}<a href="?page={{ next_page }}&amp;search={{ search|urlencode }}&amp;status={{ status|urlencode }}">Next</a>{% endif %}
+</div></section></div>
+{% endblock %}

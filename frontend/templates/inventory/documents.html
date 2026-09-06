@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Vehicle Documents | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'css/inventory.css' %}">{% endblock %}
+{% block content %}
+<div class="inventory-narrow-page">
+  <a class="inventory-back-link" href="{% url 'inventory:vehicle-detail' vehicle.id %}">← Back to vehicle</a>
+  <header class="inventory-detail-heading"><div><h1>Vehicle Documents</h1><p>{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }} · {{ vehicle.vin }}</p></div></header>
+  <div class="inventory-document-grid">
+    <form method="post" enctype="multipart/form-data" class="inventory-document-card">{% csrf_token %}
+      <h2>Upload document</h2>{{ form.non_field_errors }}
+      {% for field in form %}<div class="inventory-form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>{% endfor %}
+      <button class="inventory-btn inventory-btn--primary" type="submit">Upload</button>
+    </form>
+    <section class="inventory-document-card"><h2>Saved documents</h2>
+      {% for document in documents %}<div class="inventory-document-item"><div class="inventory-document-info"><span>{{ document.doc_type|title }}</span><small>{{ document.original_filename }} · {{ document.created_at|date:"M j, Y" }}</small></div><div class="inventory-document-actions">
+        <a href="{% url 'inventory:vehicle-document-download' vehicle.id document.id %}">Download</a>
+        <form method="post" action="{% url 'inventory:vehicle-document-delete' vehicle.id document.id %}">{% csrf_token %}<button class="inventory-document-remove" type="submit">Remove</button></form>
+      </div></div>{% empty %}<p>No documents uploaded for this vehicle.</p>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

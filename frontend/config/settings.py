@@ -24,19 +24,26 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-sivrse*x%h(q9!54-=1x^b4ycr2h+&#zvegjy+6wydl0-y=!)s'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
+SECRET_KEY = os.environ.get(
+    'FRONTEND_SECRET_KEY',
+    'django-insecure-local-frontend-only-change-before-deployment',
+)
 
 def env_flag(name, default=False):
     value = os.environ.get(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env_flag('FRONTEND_DEBUG', default=True)
+
+ALLOWED_HOSTS = [
+    host.strip() for host in os.environ.get(
+        'FRONTEND_ALLOWED_HOSTS', '127.0.0.1,localhost,testserver',
+    ).split(',') if host.strip()
+]
 
 
 # Application definition
@@ -133,20 +140,17 @@ STATICFILES_DIRS = [
 ]
 
 
-# Django-to-FastAPI integration.
+# Server-rendered Django frontend to Django REST API integration.
 # Example: ADMS_API_BASE_URL=http://127.0.0.1:8001/api/v1
-ADMS_API_BASE_URL = os.environ.get('ADMS_API_BASE_URL', '').rstrip('/')
+ADMS_API_BASE_URL = os.environ.get(
+    'ADMS_API_BASE_URL',
+    'http://127.0.0.1:8001/api/v1',
+).rstrip('/')
 ADMS_API_TIMEOUT = os.environ.get('ADMS_API_TIMEOUT', '10')
-ADMS_PREVIEW_MODE = env_flag(
-    'ADMS_PREVIEW_MODE',
-    default=not bool(ADMS_API_BASE_URL),
-)
-# Kept as an alias so existing dashboard configuration remains compatible.
-DASHBOARD_PREVIEW_MODE = ADMS_PREVIEW_MODE
-DASHBOARD_PREVIEW_ROLE = os.environ.get(
-    'DASHBOARD_PREVIEW_ROLE',
-    'admin',
-).strip().lower()
+# This integrated build always uses the authenticated backend. Keeping preview
+# mode off prevents demo data from bypassing the real login and role checks.
+ADMS_PREVIEW_MODE = False
+DASHBOARD_PREVIEW_MODE = False
 LOGIN_URL = '/login/'
 LOGIN_SUCCESS_URL = '/dashboard/'
 
@@ -159,3 +163,8 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# Keep frontend login cookies separate from the backend admin on localhost.
+SESSION_COOKIE_NAME = "adms_frontend_session"
+CSRF_COOKIE_NAME = "adms_frontend_csrf"
+SESSION_COOKIE_HTTPONLY = True

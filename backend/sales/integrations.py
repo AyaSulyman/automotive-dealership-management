@@ -1,8 +1,5 @@
 """
-Integration hooks into Person 1's inventory domain (API spec sections 5-7:
-Vehicles, Customers). That app doesn't exist yet, so these are no-op stubs
-with a clear TODO — swap the body for a real model call once it lands,
-without changing any call sites in views.py.
+Integration hooks into the inventory domain (API spec sections 5-7).
 """
 import logging
 

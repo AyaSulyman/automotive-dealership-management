@@ -1,9 +1,9 @@
 """
 Customer API endpoints (spec section 7):
 
-    GET   /customers                    list (search/status filters, all roles)
+    GET   /customers                    list (search/status filters, admin/agent)
     POST  /customers                    create (admin/agent)
-    GET   /customers/{id}               detail (all roles)
+    GET   /customers/{id}               detail (admin/agent)
     PATCH /customers/{id}               edit (admin/agent)
     GET   /customers/{id}/history       consolidated timeline across Person 2 data
     GET   /customers/{id}/balance       outstanding balance (admin/accountant)
@@ -40,7 +40,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            return [IsAuthenticated()]
+            return [IsAdminOrAgent()]
         return [IsAdminOrAgent()]
 
     def get_queryset(self):
@@ -51,6 +51,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(
                 Q(first_name__icontains=search) | Q(last_name__icontains=search)
                 | Q(email__icontains=search) | Q(phone__icontains=search)
+                | Q(id_number__icontains=search)
             )
         cust_status = params.get("status")
         if cust_status:
@@ -76,7 +77,7 @@ class CustomerDetailView(generics.RetrieveUpdateAPIView):
 
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            return [IsAuthenticated()]
+            return [IsAdminOrAgent()]
         return [IsAdminOrAgent()]
 
 
@@ -93,7 +94,7 @@ def _get_customer(pk):
 class CustomerHistoryView(APIView):
     """GET /customers/{pk}/history — merged timeline across both people's data."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrAgent]
     serializer_class = CustomerSerializer
 
     def get(self, request, pk):
@@ -137,7 +138,7 @@ class CustomerHistoryView(APIView):
         except Exception:
             pass
 
-        timeline.sort(key=lambda r: r["date"] or "")
+        timeline.sort(key=lambda r: r["date"] or "", reverse=True)
         return Response(
             {
                 "customer": CustomerSerializer(customer).data,

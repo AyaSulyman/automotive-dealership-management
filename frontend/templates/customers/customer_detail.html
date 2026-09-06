@@ -26,11 +26,11 @@
         <header><h2>Customer Information</h2></header>
         <dl class="detail-grid">
             <div><dt>ID Type</dt><dd>{{ customer.id_type|default:"—" }}</dd></div>
-            <div><dt>ID / Tax Number</dt><dd>{{ customer.id_number }}</dd></div>
+            <div><dt>ID Number</dt><dd>{{ customer.id_number }}</dd></div>
             <div><dt>Phone</dt><dd>{{ customer.phone }}</dd></div>
             <div><dt>Email</dt><dd>{{ customer.email }}</dd></div>
             <div><dt>Address</dt><dd>{{ customer.address }}</dd></div>
-            <div><dt>Preferred Contact</dt><dd>{{ customer.preferred_contact }}</dd></div>
+            <div><dt>Status</dt><dd>{{ customer.status_display }}</dd></div>
         </dl>
     </section>
 
@@ -55,4 +55,3 @@
     </section>
 </div>
 {% endblock %}
-

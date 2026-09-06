@@ -1,5 +1,6 @@
 import csv
 
+from django.db import transaction
 from django.db import models
 from django.http import HttpResponse
 from django.utils import timezone
@@ -10,7 +11,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.permissions import IsAdminAgentOrAccountant, IsAdminOrAccountant
+from common.permissions import IsAdminOrAccountant
 from common.pdf import render_simple_document
 from reports.audit import log_action
 
@@ -37,7 +38,7 @@ class PaymentListCreateView(generics.ListCreateAPIView):
     GET  /payments   List/filter -- Payments Ledger table.
     POST /payments   "Record Payment."
     """
-    queryset = Payment.objects.select_related("invoice").all()
+    queryset = Payment.objects.select_related("invoice", "recorded_by").all()
     permission_classes = [IsAdminOrAccountant]
     filterset_fields = ["invoice", "method"]
 
@@ -45,16 +46,45 @@ class PaymentListCreateView(generics.ListCreateAPIView):
         return PaymentCreateSerializer if self.request.method == "POST" else PaymentSerializer
 
     def get_permissions(self):
-        # Recording a payment is also open to agents (e.g. taking a down
-        # payment at the point of sale); everything else is admin/accountant.
+        # The finance workflow is restricted to administrators and accountants.
         if self.request.method == "POST":
-            return [IsAdminAgentOrAccountant()]
+            return [IsAdminOrAccountant()]
         return super().get_permissions()
 
+    def get_queryset(self):
+        qs = Payment.objects.select_related("invoice", "recorded_by").all()
+        params = self.request.query_params
+        invoice_id = params.get("invoice_id") or params.get("invoice")
+        if invoice_id:
+            qs = qs.filter(invoice_id=invoice_id)
+        method = params.get("method")
+        if method:
+            qs = qs.filter(method=method)
+        date_from = params.get("date_from")
+        if date_from:
+            qs = qs.filter(paid_at__date__gte=date_from)
+        date_to = params.get("date_to")
+        if date_to:
+            qs = qs.filter(paid_at__date__lte=date_to)
+        return qs
+
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+
+        from sales.models import SalesInvoice
+        invoice = generics.get_object_or_404(
+            SalesInvoice.objects.select_for_update(), pk=data["invoice"].pk,
+        )
+        if invoice.status != "OPEN":
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"invoice": "Payments can only be recorded against an OPEN invoice."})
+        if data["amount"] > invoice.balance_due:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"amount": f"Amount exceeds the outstanding balance ({invoice.balance_due})."})
+        data["invoice"] = invoice
 
         payment = Payment.objects.create(
             receipt_number=_generate_receipt_number(),
@@ -62,7 +92,6 @@ class PaymentListCreateView(generics.ListCreateAPIView):
             **data,
         )
 
-        invoice = payment.invoice
         invoice.balance_due = invoice.balance_due - payment.amount
         if invoice.balance_due <= 0:
             invoice.balance_due = 0
@@ -79,14 +108,14 @@ class PaymentListCreateView(generics.ListCreateAPIView):
 @extend_schema_view(get=extend_schema(tags=["Payments"], summary="Payment detail"))
 class PaymentDetailView(generics.RetrieveAPIView):
     """GET /payments/{id} -- payment detail."""
-    queryset = Payment.objects.select_related("invoice").all()
+    queryset = Payment.objects.select_related("invoice", "recorded_by").all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAdminOrAccountant]
 
 
 class PaymentReceiptView(APIView):
     """GET /payments/{id}/receipt -- printable/PDF receipt."""
-    permission_classes = [IsAdminAgentOrAccountant]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Payments"], summary="Printable / PDF receipt", responses={200: OpenApiTypes.BINARY})
     def get(self, request, pk):
@@ -103,9 +132,10 @@ class PaymentReceiptView(APIView):
         ]
         headers = ["Description", "Amount"]
         rows = [["Payment received", f"{payment.amount:.2f}"]]
+        balance_after = PaymentSerializer(payment).data["balance_after"]
         totals = [
             ("Amount Paid", f"{payment.amount:.2f}"),
-            ("Remaining Balance", f"{invoice.balance_due:.2f}"),
+            ("Remaining Balance", f"{balance_after}"),
         ]
 
         pdf_bytes = render_simple_document(
@@ -129,19 +159,30 @@ class PaymentsExportView(APIView):
     @extend_schema(tags=["Payments"], summary="Export payments (CSV)", responses={200: OpenApiTypes.BINARY})
     def get(self, request):
         payments = Payment.objects.select_related("invoice", "recorded_by").all()
-        for key, value in request.query_params.items():
-            if key in ("invoice", "method"):
-                payments = payments.filter(**{key: value})
+        invoice_id = request.query_params.get("invoice_id") or request.query_params.get("invoice")
+        if invoice_id:
+            payments = payments.filter(invoice_id=invoice_id)
+        if request.query_params.get("method"):
+            payments = payments.filter(method=request.query_params["method"])
+        if request.query_params.get("date_from"):
+            payments = payments.filter(paid_at__date__gte=request.query_params["date_from"])
+        if request.query_params.get("date_to"):
+            payments = payments.filter(paid_at__date__lte=request.query_params["date_to"])
 
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="payments_export.csv"'
         writer = csv.writer(response)
-        writer.writerow(["Receipt #", "Invoice #", "Amount", "Method", "Paid At", "Recorded By"])
+        writer.writerow(["Receipt #", "Invoice #", "Amount", "Method", "Reference", "Paid At", "Recorded By"])
+        def csv_safe(value):
+            text = str(value)
+            return "'" + text if text.startswith(("=", "+", "-", "@")) else text
+
         for p in payments:
             writer.writerow([
-                p.receipt_number,
-                p.invoice.invoice_number or f"DRAFT-{p.invoice_id}",
-                p.amount, p.method, p.paid_at, p.recorded_by.get_username(),
+                csv_safe(p.receipt_number),
+                csv_safe(p.invoice.invoice_number or f"DRAFT-{p.invoice_id}"),
+                p.amount, csv_safe(p.method), csv_safe(p.reference_number), p.paid_at,
+                csv_safe(p.recorded_by.get_username()),
             ])
         return response
 
@@ -153,6 +194,14 @@ class PaymentScheduleListView(generics.ListAPIView):
     serializer_class = PaymentScheduleSerializer
     permission_classes = [IsAdminOrAccountant]
     filterset_fields = ["invoice"]
+
+    def get_queryset(self):
+        qs = PaymentSchedule.objects.select_related("invoice").all()
+        invoice_id = (
+            self.request.query_params.get("invoice_id")
+            or self.request.query_params.get("invoice")
+        )
+        return qs.filter(invoice_id=invoice_id) if invoice_id else qs
 
 
 @extend_schema_view(patch=extend_schema(tags=["Payment Schedules"], summary="Manually adjust an installment"))
@@ -173,15 +222,16 @@ class GenerateScheduleView(APIView):
     Creates PaymentSchedule rows for the remaining balance after the down
     payment, spread evenly across `installment_count` installments.
     """
-    permission_classes = [IsAdminAgentOrAccountant]
+    permission_classes = [IsAdminOrAccountant]
 
     @extend_schema(tags=["Payment Schedules"], summary="Generate an installment schedule",
                    request=GenerateScheduleSerializer, responses=PaymentScheduleSerializer(many=True))
+    @transaction.atomic
     def post(self, request, pk):
         from sales.models import SalesInvoice
         import datetime
 
-        invoice = generics.get_object_or_404(SalesInvoice, pk=pk)
+        invoice = generics.get_object_or_404(SalesInvoice.objects.select_for_update(), pk=pk)
         if invoice.status != "OPEN":
             return Response(
                 {"error": {"code": "conflict", "message": "A payment schedule can only be generated for an OPEN invoice.", "fields": {}}},
@@ -242,10 +292,18 @@ class FinancingAccountListCreateView(generics.ListCreateAPIView):
     serializer_class = FinancingAccountSerializer
     filterset_fields = ["invoice"]
 
+    def get_queryset(self):
+        qs = FinancingAccount.objects.select_related("invoice").all()
+        invoice_id = (
+            self.request.query_params.get("invoice_id")
+            or self.request.query_params.get("invoice")
+        )
+        return qs.filter(invoice_id=invoice_id) if invoice_id else qs
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [IsAdminOrAccountant()]
-        return [IsAdminAgentOrAccountant()]
+        return [IsAdminOrAccountant()]
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -273,7 +331,7 @@ def _build_statement_summary(customer_id, period_start, period_end):
 
     invoices = SalesInvoice.objects.filter(
         customer_id=customer_id, sale_date__gte=period_start, sale_date__lte=period_end,
-    ).exclude(status="CANCELLED")
+    ).exclude(status__in=["CANCELLED", "DRAFT"])
     payments = Payment.objects.filter(
         invoice__customer_id=customer_id, paid_at__date__gte=period_start, paid_at__date__lte=period_end,
     )

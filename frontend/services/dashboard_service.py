@@ -1,4 +1,5 @@
-from .api_client import request_json
+from .api_client import APIError, request_json
+from .presenters import list_results
 
 
 def get_overview(access_token):
@@ -32,6 +33,18 @@ def get_employees(access_token, *, search=""):
         access_token=access_token,
         params={"search": search, "page_size": 25},
     )
+
+
+def get_roles(access_token):
+    return request_json("GET", "/roles", access_token=access_token)
+
+
+def role_id_for(access_token, role_name):
+    normalized = str(role_name or "").strip().lower()
+    for role in list_results(get_roles(access_token)):
+        if str(role.get("name") or "").strip().lower() == normalized:
+            return role.get("id")
+    raise APIError(f"The backend does not define the '{normalized}' role.")
 
 
 def get_employee(access_token, employee_id):

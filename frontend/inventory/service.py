@@ -1,4 +1,4 @@
-from services.api_client import request_json
+from services.api_client import get_all, request_binary, request_json
 
 
 def get_vehicles(access_token, *, search="", status="", page=1, page_size=10):
@@ -42,12 +42,22 @@ def delete_vehicle(access_token, vehicle_id):
     )
 
 
-def get_vendors(access_token, *, search="", page=1, page_size=10):
+def get_vendors(
+    access_token, *, search="", status="", page=1, page_size=10
+):
+    is_active = ""
+    if status.lower() in {"active", "inactive"}:
+        is_active = status.lower() == "active"
     return request_json(
         "GET",
         "/vendors",
         access_token=access_token,
-        params={"search": search, "page": page, "page_size": page_size},
+        params={
+            "search": search,
+            "is_active": is_active,
+            "page": page,
+            "page_size": page_size,
+        },
     )
 
 
@@ -73,13 +83,18 @@ def update_vendor(access_token, vendor_id, vendor):
 
 
 def get_purchase_orders(
-    access_token, *, status="", page=1, page_size=10
+    access_token, *, search="", status="", page=1, page_size=10
 ):
     return request_json(
         "GET",
         "/purchase-orders",
         access_token=access_token,
-        params={"status": status, "page": page, "page_size": page_size},
+        params={
+            "search": search,
+            "status": status,
+            "page": page,
+            "page_size": page_size,
+        },
     )
 
 
@@ -99,3 +114,25 @@ def update_purchase_order_status(access_token, purchase_order_id, status):
         payload={"status": status},
     )
 
+
+def get_documents(access_token, related_type, related_id):
+    return get_all(
+        "/documents", access_token=access_token,
+        params={"related_type": related_type, "related_id": related_id},
+    )
+
+
+def upload_document(access_token, related_type, related_id, doc_type, uploaded):
+    return request_json(
+        "POST", "/documents", access_token=access_token,
+        payload={"related_type": related_type, "related_id": related_id, "doc_type": doc_type},
+        files={"file": (uploaded.name, uploaded.file, uploaded.content_type)},
+    )
+
+
+def delete_document(access_token, document_id):
+    return request_json("DELETE", f"/documents/{document_id}", access_token=access_token)
+
+
+def download_document(access_token, document_id):
+    return request_binary(f"/documents/{document_id}/download", access_token=access_token)

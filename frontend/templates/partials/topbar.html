@@ -7,6 +7,7 @@
     </div>
 
     <div class="topbar-actions">
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="signout-button">Sign out</button></form>
         <div class="profile-summary">
             <span class="profile-summary__text">
                 <strong>{{ user_identity.name|default:"Employee Profile" }}</strong>

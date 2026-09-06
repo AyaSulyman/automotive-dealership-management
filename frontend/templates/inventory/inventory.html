@@ -92,7 +92,7 @@
                                     <summary aria-label="Actions for {{ vehicle.id }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
                                     <div class="inventory-menu__items">
                                         <a href="{% url 'inventory:vehicle-detail' vehicle.id %}">View details</a>
-                                        {% if can_edit_inventory %}<a href="{% url 'inventory:vehicle-edit' vehicle.id %}">Edit vehicle</a>{% endif %}
+                                        {% if can_edit_inventory and vehicle.status != 'RESERVED' and vehicle.status != 'SOLD' %}<a href="{% url 'inventory:vehicle-edit' vehicle.id %}">Edit vehicle</a>{% endif %}
                                         {% if can_remove_inventory %}<a class="is-danger" href="{% url 'inventory:vehicle-remove' vehicle.id %}">Remove</a>{% endif %}
                                     </div>
                                 </details>
@@ -111,7 +111,7 @@
                         <tr>
                             <td class="cell-id">{{ vendor.id }}</td>
                             <td class="cell-strong">{{ vendor.name }}</td>
-                            <td class="cell-muted">{{ vendor.contact_name }}</td>
+                            <td class="cell-muted">{{ vendor.contact_person }}</td>
                             <td class="cell-muted">{{ vendor.email }}</td>
                             <td><span class="inventory-badge {{ vendor.status_style }}">{{ vendor.status_label }}</span></td>
                             <td class="inventory-actions-cell">
@@ -135,7 +135,7 @@
                     <tbody>
                     {% for purchase_order in rows %}
                         <tr>
-                            <td class="cell-id">{{ purchase_order.id }}</td>
+                            <td class="cell-id">{{ purchase_order.number }}</td>
                             <td class="cell-strong">{{ purchase_order.vendor }}</td>
                             <td class="cell-muted">{{ purchase_order.order_date }}</td>
                             <td class="cell-muted">{{ purchase_order.expected_date }}</td>
@@ -145,13 +145,11 @@
                                     <summary aria-label="Actions for {{ purchase_order.id }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
                                     <div class="inventory-menu__items">
                                         <a href="{% url 'inventory:purchase-order-detail' purchase_order.id %}">View details</a>
-                                        {% if can_edit_inventory %}
+                                        {% if can_edit_inventory and purchase_order.status == 'PENDING' %}
                                             <form method="post" action="{% url 'inventory:purchase-order-status' purchase_order.id %}">
                                                 {% csrf_token %}<input type="hidden" name="status" value="RECEIVED"><button type="submit">Mark as received</button>
                                             </form>
-                                            <form method="post" action="{% url 'inventory:purchase-order-status' purchase_order.id %}">
-                                                {% csrf_token %}<input type="hidden" name="status" value="PENDING"><button type="submit">Mark as pending</button>
-                                            </form>
+                                        {% elif can_edit_inventory and purchase_order.status == 'RECEIVED' %}
                                             <form method="post" action="{% url 'inventory:purchase-order-status' purchase_order.id %}">
                                                 {% csrf_token %}<input type="hidden" name="status" value="CLOSED"><button type="submit">Mark as closed</button>
                                             </form>

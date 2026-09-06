@@ -8,15 +8,15 @@ FORM_CONTROL = {"class": "business-form-control"}
 class CustomerForm(forms.Form):
     ID_TYPE_CHOICES = (
         ("", "Select ID type"),
+        ("DL", "Driver's License"),
         ("NATIONAL_ID", "National ID"),
         ("PASSPORT", "Passport"),
-        ("TAX_ID", "Tax ID"),
-        ("OTHER", "Other"),
     )
-    CONTACT_CHOICES = (
-        ("", "No preference"),
-        ("PHONE", "Phone"),
-        ("EMAIL", "Email"),
+    STATUS_CHOICES = (
+        ("LEAD", "Lead"),
+        ("ACTIVE", "Active"),
+        ("VIP", "VIP"),
+        ("INACTIVE", "Inactive"),
     )
 
     full_name = forms.CharField(
@@ -33,8 +33,8 @@ class CustomerForm(forms.Form):
         widget=forms.Select(attrs=FORM_CONTROL),
     )
     id_number = forms.CharField(
-        label="ID / Tax Number",
-        max_length=60,
+        label="ID Number",
+        max_length=50,
         required=False,
         widget=forms.TextInput(attrs=FORM_CONTROL),
     )
@@ -56,12 +56,14 @@ class CustomerForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs=FORM_CONTROL),
     )
-    preferred_contact_channel = forms.ChoiceField(
-        label="Preferred Contact",
-        required=False,
-        choices=CONTACT_CHOICES,
+    status = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        initial="ACTIVE",
         widget=forms.Select(attrs=FORM_CONTROL),
     )
+
+    def clean_full_name(self):
+        return " ".join(self.cleaned_data["full_name"].split())
 
     def clean(self):
         cleaned = super().clean()
@@ -72,16 +74,16 @@ class CustomerForm(forms.Form):
         return cleaned
 
     def api_payload(self):
+        name_parts = self.cleaned_data["full_name"].split(maxsplit=1)
         return {
-            "full_name": self.cleaned_data["full_name"],
-            "id_type": self.cleaned_data["id_type"] or None,
-            "id_number": self.cleaned_data["id_number"] or None,
-            "phone": self.cleaned_data["phone"] or None,
-            "email": self.cleaned_data["email"] or None,
-            "address": self.cleaned_data["address"] or None,
-            "preferred_contact_channel": (
-                self.cleaned_data["preferred_contact_channel"] or None
-            ),
+            "first_name": name_parts[0],
+            "last_name": name_parts[1] if len(name_parts) > 1 else "",
+            "id_type": self.cleaned_data["id_type"],
+            "id_number": self.cleaned_data["id_number"],
+            "phone": self.cleaned_data["phone"],
+            "email": self.cleaned_data["email"],
+            "address": self.cleaned_data["address"],
+            "status": self.cleaned_data["status"],
         }
 
 
@@ -90,6 +92,8 @@ class PaymentForm(forms.Form):
         ("CASH", "Cash"),
         ("CARD", "Card"),
         ("TRANSFER", "Bank Transfer"),
+        ("CHECK", "Check"),
+        ("ACH", "ACH"),
     )
 
     invoice_id = forms.ChoiceField(
@@ -167,10 +171,9 @@ class PaymentForm(forms.Form):
     def api_payload(self):
         invoice_id = self.cleaned_data["invoice_id"]
         return {
-            "invoice_id": int(invoice_id) if str(invoice_id).isdigit() else invoice_id,
-            "amount": float(self.cleaned_data["amount"]),
+            "invoice": int(invoice_id) if str(invoice_id).isdigit() else invoice_id,
+            "amount": str(self.cleaned_data["amount"]),
             "method": self.cleaned_data["method"],
             "paid_at": self.cleaned_data["paid_at"].isoformat(),
-            "reference_number": self.cleaned_data["reference_number"] or None,
+            "reference_number": self.cleaned_data["reference_number"],
         }
-

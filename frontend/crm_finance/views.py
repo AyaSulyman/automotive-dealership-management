@@ -22,7 +22,7 @@ from .forms import CustomerForm, PaymentForm
 PAGE_SIZE = 10
 CUSTOMER_EDIT_ROLES = {"admin", "agent"}
 FINANCE_ROLES = {"admin", "accountant"}
-PAYMENT_CREATE_ROLES = {"admin", "agent", "accountant"}
+PAYMENT_CREATE_ROLES = FINANCE_ROLES
 VALID_PAYMENT_TABS = {"payments", "schedules", "financing"}
 VALID_REPORT_TABS = {"overview", "vehicle-summary"}
 SESSION_KEYS = {
@@ -44,7 +44,7 @@ def _redirect_to_login(request, message=None):
     return redirect("login-page")
 
 
-def _page_access(request, *, allowed_roles=ALLOWED_ROLES, label="this page"):
+def _page_access(request, *, allowed_roles=CUSTOMER_EDIT_ROLES, label="this page"):
     preview_mode = _preview_mode()
     try:
         if preview_mode:
@@ -61,8 +61,8 @@ def _page_access(request, *, allowed_roles=ALLOWED_ROLES, label="this page"):
 
     role = normalize_role(user.get("role"))
     if role not in allowed_roles:
-        messages.error(request, f"Your role does not have access to {label}.")
-        return None, preview_mode, redirect("dashboard")
+        from services.access import denied
+        return None, preview_mode, denied(request, user)
     return user, preview_mode, None
 
 
@@ -120,7 +120,13 @@ def _next_numeric_id(items, minimum):
 
 def _add_api_errors(form, error):
     added = False
+    field_aliases = {
+        "first_name": "full_name",
+        "last_name": "full_name",
+        "invoice": "invoice_id",
+    }
     for field_name, field_messages in error.field_errors.items():
+        field_name = field_aliases.get(field_name, field_name)
         if field_name not in form.fields:
             continue
         if not isinstance(field_messages, (list, tuple)):
@@ -151,16 +157,21 @@ def _page_number(request):
 
 
 def _customer_initial(customer):
+    combined_name = " ".join(
+        str(customer.get(part) or "").strip()
+        for part in ("first_name", "last_name")
+    ).strip()
     return {
-        "full_name": customer.get("full_name") or customer.get("name") or "",
+        "full_name": combined_name
+        or customer.get("full_name")
+        or customer.get("name")
+        or "",
         "id_type": customer.get("id_type") or "",
         "id_number": customer.get("id_number") or "",
         "phone": customer.get("phone") or "",
         "email": customer.get("email") or "",
         "address": customer.get("address") or "",
-        "preferred_contact_channel": (
-            customer.get("preferred_contact_channel") or ""
-        ),
+        "status": customer.get("status") or "ACTIVE",
     }
 
 
@@ -173,6 +184,7 @@ def customers_page(request):
         return response
 
     search = request.GET.get("search", "").strip()
+    customer_status = request.GET.get("status", "").strip().upper()
     requested_page = _page_number(request)
     errors = []
 
@@ -185,6 +197,13 @@ def customers_page(request):
                 for customer in customers
                 if normalized
                 in " ".join(str(value) for value in customer.values()).lower()
+            ]
+        if customer_status:
+            customers = [
+                customer
+                for customer in customers
+                if str(customer.get("status") or "ACTIVE").upper()
+                == customer_status
             ]
         paginator = Paginator(customers, PAGE_SIZE)
         page_object = paginator.get_page(requested_page)
@@ -200,6 +219,7 @@ def customers_page(request):
             payload = services.get_customers(
                 auth_service.access_token(request),
                 search=search,
+                status=customer_status,
                 page=requested_page,
                 page_size=PAGE_SIZE,
             )
@@ -235,6 +255,7 @@ def customers_page(request):
         {
             "customers": rows,
             "search_query": search,
+            "selected_status": customer_status,
             "customer_errors": errors,
             "result_count": count,
             "display_start": (current_page - 1) * PAGE_SIZE + 1 if count else 0,
@@ -605,12 +626,13 @@ def payment_record_page(request):
         payload = form.api_payload()
         if preview_mode:
             preview_invoices = _session_collection(request, "invoices")
-            invoice = _find_item(preview_invoices, payload["invoice_id"])
+            invoice = _find_item(preview_invoices, payload["invoice"])
             if not invoice:
                 form.add_error("invoice_id", "The selected invoice was not found.")
             else:
+                payment_amount = float(payload["amount"])
                 balance_after = max(
-                    0, float(invoice.get("balance_due") or 0) - payload["amount"]
+                    0, float(invoice.get("balance_due") or 0) - payment_amount
                 )
                 invoice["balance_due"] = balance_after
                 if balance_after == 0:
@@ -623,6 +645,7 @@ def payment_record_page(request):
                     "id": payment_id,
                     "receipt_number": f"REC-{payment_id}",
                     **payload,
+                    "invoice_id": payload["invoice"],
                     "invoice_number": invoice.get("invoice_number"),
                     "customer_name": invoice.get("customer_name"),
                     "vehicle": invoice.get("vehicle"),
@@ -726,6 +749,28 @@ def payment_receipt_page(request, payment_id):
 
 
 @require_GET
+def payment_receipt_pdf(request, payment_id):
+    user, preview_mode, response = _page_access(
+        request, allowed_roles=PAYMENT_CREATE_ROLES, label="payment receipts"
+    )
+    if response:
+        return response
+    if preview_mode:
+        messages.info(request, "PDF receipts require the backend API.")
+        return redirect("crm_finance:payment-receipt", payment_id=payment_id)
+    try:
+        content = services.get_payment_receipt_pdf(
+            auth_service.access_token(request), payment_id
+        )
+    except APIError as error:
+        messages.error(request, error.message)
+        return redirect("crm_finance:payment-receipt", payment_id=payment_id)
+    pdf = HttpResponse(content, content_type="application/pdf")
+    pdf["Content-Disposition"] = f'attachment; filename="receipt-{int(payment_id)}.pdf"'
+    return pdf
+
+
+@require_GET
 def payments_export(request):
     user, preview_mode, response = _page_access(
         request, allowed_roles=FINANCE_ROLES, label="payment exports"
@@ -733,14 +778,31 @@ def payments_export(request):
     if response:
         return response
 
+    invoice_id = request.GET.get("invoice_id", "").strip()
+    method = request.GET.get("method", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+
     try:
-        payload = (
-            _session_collection(request, "payments")
-            if preview_mode
-            else services.get_payments(
-                auth_service.access_token(request), page_size=1000
+        if preview_mode:
+            payload = _filter_payments(
+                _session_collection(request, "payments"),
+                invoice_id,
+                method,
+                date_from,
+                date_to,
             )
-        )
+        else:
+            content = services.export_payments(
+                auth_service.access_token(request),
+                invoice_id=invoice_id,
+                method=method,
+                date_from=date_from,
+                date_to=date_to,
+            )
+            export = HttpResponse(content, content_type="text/csv; charset=utf-8")
+            export["Content-Disposition"] = 'attachment; filename="payments-report.csv"'
+            return export
         rows = presenters.payment_rows(payload)
     except APIError as error:
         messages.error(request, f"Could not export payments: {error.message}")

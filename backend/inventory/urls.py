@@ -14,4 +14,5 @@ urlpatterns = [
     path("vehicles/<int:pk>/valuation", views.VehicleValuationCreateView.as_view(), name="vehicle-valuation-create"),
     path("documents", views.DocumentListCreateView.as_view(), name="document-list-create"),
     path("documents/<int:pk>", views.DocumentDeleteView.as_view(), name="document-delete"),
+    path("documents/<int:pk>/download", views.DocumentDownloadView.as_view(), name="document-download"),
 ]

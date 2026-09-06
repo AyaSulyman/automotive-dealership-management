@@ -15,6 +15,10 @@ def currency(value):
     return "$" + f"{decimal_value(value):,.2f}"
 
 
+def currency_or_dash(value):
+    return "—" if value in (None, "") else currency(value)
+
+
 def date_value(value):
     if isinstance(value, (date, datetime)):
         return value
@@ -33,18 +37,29 @@ def customer_row(customer):
         ("customer_number", "customer_code"),
         f"CUS-{customer_id}" if customer_id else "—",
     )
+    combined_name = " ".join(
+        str(customer.get(part) or "").strip()
+        for part in ("first_name", "last_name")
+    ).strip()
+    address_parts = [
+        customer.get("address"),
+        customer.get("city"),
+        customer.get("state"),
+        customer.get("zip_code"),
+    ]
+    status = str(customer.get("status") or "ACTIVE").upper()
     return {
         "id": customer_id,
         "number": number,
-        "name": first_value(customer, ("full_name", "name"), "—"),
+        "name": combined_name
+        or first_value(customer, ("full_name", "name"), "—"),
         "id_type": str(customer.get("id_type") or "").replace("_", " ").title(),
         "id_number": customer.get("id_number") or "—",
         "phone": customer.get("phone") or "—",
         "email": customer.get("email") or "—",
-        "address": customer.get("address") or "—",
-        "preferred_contact": str(
-            customer.get("preferred_contact_channel") or "—"
-        ).replace("_", " ").title(),
+        "address": ", ".join(str(part) for part in address_parts if part) or "—",
+        "status": status,
+        "status_display": status.replace("_", " ").title(),
         "created_at": date_value(customer.get("created_at")),
     }
 
@@ -116,7 +131,7 @@ def payment_row(payment):
         invoice_id = invoice.get("id")
         invoice_number = invoice.get("invoice_number") or invoice.get("number")
     else:
-        invoice_id = payment.get("invoice_id")
+        invoice_id = payment.get("invoice_id") or invoice
         invoice_number = payment.get("invoice_number")
     if isinstance(vehicle, dict):
         vehicle = " ".join(
@@ -131,7 +146,13 @@ def payment_row(payment):
         ),
         "invoice_id": invoice_id,
         "invoice": invoice_number or "—",
-        "customer": payment.get("customer_name") or _nested_name(customer),
+        "customer": payment.get("customer_name")
+        or _nested_name(customer)
+        or (
+            f'Customer #{payment.get("customer_id")}'
+            if payment.get("customer_id")
+            else "—"
+        ),
         "vehicle": vehicle or payment.get("vehicle_name") or "—",
         "amount_value": decimal_value(payment.get("amount")),
         "amount": currency(payment.get("amount")),
@@ -168,7 +189,7 @@ def schedule_rows(payload):
                     if isinstance(invoice, dict)
                     else None
                 )
-                or f'Invoice {item.get("invoice_id", "—")}',
+                or f'Invoice {item.get("invoice_id") or invoice or "—"}',
                 "installment": item.get("installment_number") or "—",
                 "due_date": date_value(item.get("due_date")),
                 "amount_due": currency(item.get("amount_due")),
@@ -199,7 +220,7 @@ def financing_rows(payload):
                     if isinstance(invoice, dict)
                     else None
                 )
-                or f'Invoice {item.get("invoice_id", "—")}',
+                or f'Invoice {item.get("invoice_id") or invoice or "—"}',
                 "lender": first_value(
                     item, ("lender_name", "lender"), "—"
                 ),
@@ -214,11 +235,27 @@ def financing_rows(payload):
 
 
 def history_rows(payload):
+    data = unwrap(payload)
+    if isinstance(data, dict) and isinstance(data.get("timeline"), list):
+        items = data["timeline"]
+    else:
+        items = list_results(payload)
     rows = []
-    for item in list_results(payload):
+    for item in items:
         if not isinstance(item, dict):
             continue
         kind = str(first_value(item, ("type", "event_type"), "activity")).lower()
+        if kind == "invoice":
+            description = f'Sales invoice {str(item.get("status") or "").title()}'.strip()
+        elif kind == "payment":
+            description = f'Payment via {str(item.get("method") or "other").replace("_", " ").title()}'
+        elif kind == "trade_in":
+            description = " ".join(
+                str(item.get(field) or "").strip()
+                for field in ("year", "make", "model")
+            ).strip() or "Trade-in appraisal"
+        else:
+            description = item.get("description") or "Account activity"
         rows.append(
             {
                 "type": kind,
@@ -226,12 +263,16 @@ def history_rows(payload):
                 "reference": first_value(
                     item, ("reference", "invoice_number", "receipt_number"), "—"
                 ),
-                "description": item.get("description") or "Account activity",
+                "description": description,
                 "date": date_value(
                     first_value(item, ("date", "created_at", "paid_at"), None)
                 ),
                 "amount": currency(
-                    first_value(item, ("amount", "total_amount"), 0)
+                    first_value(
+                        item,
+                        ("amount", "total_amount", "appraised_value"),
+                        0,
+                    )
                 ),
             }
         )
@@ -278,18 +319,18 @@ def vehicle_summary_row(item):
         "vehicle": item.get("vehicle")
         or item.get("vehicle_name")
         or "—",
-        "acquisition_cost": currency(item.get("acquisition_cost")),
-        "transport_cost": currency(item.get("transport_cost")),
-        "recon_cost": currency(
+        "acquisition_cost": currency_or_dash(item.get("acquisition_cost")),
+        "transport_cost": currency_or_dash(item.get("transport_cost")),
+        "recon_cost": currency_or_dash(
             first_value(item, ("recon_cost", "reconditioning_cost"), 0)
         ),
-        "cost_basis": currency(
+        "cost_basis": currency_or_dash(
             first_value(item, ("total_cost_basis", "cost_basis"), 0)
         ),
-        "sale_price": currency(
-            first_value(item, ("sale_price", "total_amount"), 0)
+        "sale_price": currency_or_dash(
+            first_value(item, ("sale_price", "total_amount"), None)
         ),
-        "gross_profit": currency(item.get("gross_profit")),
+        "gross_profit": currency_or_dash(item.get("gross_profit")),
         "gross_profit_value": decimal_value(item.get("gross_profit")),
     }
 
