@@ -62,11 +62,20 @@ class Command(BaseCommand):
         ]:
             user, created = User.objects.get_or_create(
                 username=username,
-                defaults={"is_superuser": is_super, "is_staff": is_super},
+                defaults={
+                    "is_superuser": is_super,
+                    "is_staff": is_super,
+                    "email": f"{username}@adms.com",
+                },
             )
             if created:
                 user.set_password("testpass123")
                 user.save()
+            elif not user.email:
+                # Backfill email for users created before this fix, since
+                # /auth/login authenticates by email, not username.
+                user.email = f"{username}@adms.com"
+                user.save(update_fields=["email"])
             user.groups.add(groups[role])
             users[role] = user
 
@@ -114,7 +123,14 @@ class Command(BaseCommand):
         # 7. Finalize -------------------------------------------------------
         self.stdout.write("Finalizing the deal...")
         year = timezone.now().year
-        invoice.invoice_number = f"INV-{year}-DEMO01"
+        # Sequential suffix so re-running this command (without --reset) to
+        # "add another demo deal", as documented above, doesn't collide with
+        # invoice/receipt numbers from a previous run.
+        existing_demo_count = SalesInvoice.objects.filter(
+            invoice_number__startswith=f"INV-{year}-DEMO"
+        ).count()
+        demo_seq = f"{existing_demo_count + 1:02d}"
+        invoice.invoice_number = f"INV-{year}-DEMO{demo_seq}"
         invoice.sale_date = timezone.now().date()
         invoice.status = "OPEN"
         invoice.recompute_totals(tax_rate=tax_rule.rate)
@@ -124,7 +140,7 @@ class Command(BaseCommand):
         # 8. Payment ----------------------------------------------------------
         self.stdout.write("Recording a payment...")
         payment = Payment.objects.create(
-            invoice=invoice, amount=Decimal("5000"), method="CASH", receipt_number=f"RCT-{year}-DEMO01",
+            invoice=invoice, amount=Decimal("5000"), method="CASH", receipt_number=f"RCT-{year}-DEMO{demo_seq}",
             paid_at=timezone.now(), recorded_by=accountant_user,
         )
         invoice.balance_due = invoice.balance_due - payment.amount

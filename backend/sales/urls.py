@@ -1,8 +1,12 @@
 from django.urls import path
 
 from . import views
+from . import workflow
 
 urlpatterns = [
+    path("sales/customer-options", workflow.CustomerOptionsView.as_view(), name="sales-customer-options"),
+    path("sales/vehicle-options", workflow.VehicleOptionsView.as_view(), name="sales-vehicle-options"),
+    path("sales/deal-worksheet", workflow.DealWorksheetView.as_view(), name="sales-deal-worksheet"),
     path("trade-ins", views.TradeInListCreateView.as_view(), name="trade-in-list-create"),
     path("trade-ins/<int:pk>", views.TradeInDetailView.as_view(), name="trade-in-detail"),
     path("trade-ins/<int:pk>/apply-credit", views.TradeInApplyCreditView.as_view(), name="trade-in-apply-credit"),

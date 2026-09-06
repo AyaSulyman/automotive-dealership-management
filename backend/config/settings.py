@@ -23,12 +23,18 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv(
+    "SECRET_KEY", "django-insecure-local-development-key-change-before-deploy",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "true").strip().lower() in {"1", "true", "yes", "on"}
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv(
+        "ALLOWED_HOSTS", "127.0.0.1,localhost,testserver",
+    ).split(",") if host.strip()
+]
 
 
 # Application definition
@@ -44,9 +50,14 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'django_filters',
     'drf_spectacular',
 
+    # Local apps — Person 1 (Omar): accounts & roles, inventory (vendors/POs/vehicles/documents), customers
+    'accounts',
+    'inventory',
+    'customers',
     # Local apps — Person 2 (Aya): sales/deal lifecycle, payments & financing, reporting
     'sales',
     'payments',
@@ -132,6 +143,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files (vehicle photos/videos, customer documents) — served by
+# Django's static() helper in DEBUG mode (see config/urls.py).
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -163,7 +179,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'common.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -187,14 +203,11 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'AutoSource ADMS API',
     'DESCRIPTION': (
         'Automotive Dealership Management System API.\n\n'
-        'This schema currently documents Person 2\'s scope: Trade-Ins, '
-        'Sales Invoices / Deals, Tax Rules, Payments, Payment Schedules, '
-        'Financing Accounts, Statements, Dashboard, Finance & Reports, '
-        'and the Audit Log. Person 1\'s endpoints (Authentication, Users '
-        '& Roles, Vendors, Purchase Orders, Vehicles, Documents, '
-        'Customers) will appear here automatically once that app is '
-        'merged, since they share the same DRF schema generator — no '
-        'extra wiring needed on either side.'
+        'Covers both people\'s scopes. Person 1: Authentication, Users & '
+        'Roles, Vendors, Purchase Orders, Vehicles, Documents, Customers. '
+        'Person 2: Trade-Ins, Sales Invoices / Deals, Tax Rules, Payments, '
+        'Payment Schedules, Financing Accounts, Statements, Dashboard, '
+        'Finance & Reports, and the Audit Log.'
     ),
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
@@ -202,6 +215,13 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
     'SORT_OPERATIONS': False,
     'TAGS': [
+        {'name': 'Authentication', 'description': 'Login, token refresh/rotation, logout, current user.'},
+        {'name': 'Users & Roles', 'description': 'Admin-managed users and the admin/agent/accountant roles.'},
+        {'name': 'Vendors', 'description': 'Vehicle suppliers.'},
+        {'name': 'Purchase Orders', 'description': 'Stock orders placed with vendors (PENDING > RECEIVED > CLOSED).'},
+        {'name': 'Vehicles', 'description': 'Inventory units, cost basis, media, valuations.'},
+        {'name': 'Documents', 'description': 'Attachments for vehicles, customers, and invoices.'},
+        {'name': 'Customers', 'description': 'Customer records, consolidated history, balance, statements.'},
         {'name': 'Trade-Ins', 'description': 'Trade-in appraisal and crediting.'},
         {'name': 'Tax Rules', 'description': 'Admin-configured tax rates.'},
         {'name': 'Sales Invoices', 'description': 'The deal / invoice lifecycle.'},
@@ -221,6 +241,11 @@ SPECTACULAR_SETTINGS = {
         'SalesInvoiceStatusEnum': 'sales.models.SalesInvoice.STATUS_CHOICES',
         'PaymentScheduleStatusEnum': 'payments.models.PaymentSchedule.STATUS_CHOICES',
         'FinancingAccountStatusEnum': 'payments.models.FinancingAccount.STATUS_CHOICES',
+        'VehicleStatusEnum': 'inventory.models.Vehicle.STATUS_CHOICES',
+        'VehicleConditionEnum': 'inventory.models.Vehicle.CONDITION_CHOICES',
+        'PurchaseOrderStatusEnum': 'inventory.models.PurchaseOrder.STATUS_CHOICES',
+        'VehicleMediaTypeEnum': 'inventory.models.VehicleMedia.MEDIA_TYPE_CHOICES',
+        'VehicleValuationSourceEnum': 'inventory.models.VehicleValuation.SOURCE_CHOICES',
     },
 }
 
@@ -232,8 +257,6 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
 }
 
-# NOTE (integration): role checks (admin / agent / accountant) are implemented
-# via Django's built-in auth Group model as an interim mechanism — see
-# common/permissions.py — so Person 2's endpoints don't depend on Person 1's
-# dedicated Role/Profile model landing first. Swap the permission class's
-# lookup to the real Role model once it's merged; the call sites won't change.
+# Role checks (admin / agent / accountant) read from Person 1's
+# accounts.UserProfile.role with a Django Groups fallback — see
+# common/permissions.py. Superuser always passes every role check.

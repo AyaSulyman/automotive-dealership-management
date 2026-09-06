@@ -4,282 +4,46 @@
 {% block title %}Create New Deal - AutoSource ADMS{% endblock %}
 
 {% block page_styles %}
-<style>
-  .deal-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px;
-  }
-  .deal-header {
-    margin-bottom: 24px;
-  }
-  .deal-header h1 {
-    font-size: 1.75rem;
-    font-weight: 790;
-    color: var(--navy-950, #0f172a);
-    margin: 0 0 6px 0;
-  }
-  .deal-header p {
-    color: var(--ink-600, #475569);
-    font-size: 0.92rem;
-    margin: 0;
-  }
-  
-  
-  .deal-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 24px;
-  }
-  @media (max-width: 1024px) {
-    .deal-layout {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .card {
-    background: var(--surface, #fff);
-    border: 1px solid var(--line-200, #e2e8f0);
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-  }
-  .card-title {
-    font-size: 1.1rem;
-    font-weight: 750;
-    color: var(--navy-950, #0f172a);
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .step-number {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: var(--blue-600, #2563eb);
-    color: #fff;
-    border-radius: 50%;
-    font-size: 0.85rem;
-    margin-right: 10px;
-  }
-
-  
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .form-group.full-width {
-    grid-column: span 2;
-  }
-  label {
-    font-size: 0.85rem;
-    font-weight: 650;
-    color: var(--ink-800, #334155);
-  }
-  input, select, textarea {
-    width: 100%;
-    padding: 10px 14px;
-    background: var(--surface, #fff);
-    border: 1px solid var(--line-300, #cbd5e1);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: var(--ink-950, #020617);
-  }
-  input:focus, select:focus {
-    outline: none;
-    border-color: var(--blue-600, #2563eb);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-  }
-
-  
-  .summary-section {
-    border-bottom: 1px solid var(--line-200, #e2e8f0);
-    padding-bottom: 16px;
-    margin-bottom: 16px;
-  }
-  .summary-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    color: var(--ink-700, #334155);
-    margin-bottom: 8px;
-  }
-  .summary-row.total {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: var(--navy-950, #0f172a);
-    margin-top: 12px;
-  }
-  
-  
-  .btn {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    font-size: 0.95rem;
-    font-weight: 650;
-    border-radius: 8px;
-    text-align: center;
-    cursor: pointer;
-    border: none;
-    margin-bottom: 10px;
-    text-decoration: none;
-  }
-  .btn-primary {
-    background: var(--blue-600, #2563eb);
-    color: #fff;
-  }
-  .btn-primary:hover {
-    background: var(--blue-700, #1d4ed8);
-  }
-  .btn-outline {
-    background: var(--surface, #fff);
-    color: var(--ink-800, #334155);
-    border: 1px solid var(--line-300, #cbd5e1);
-  }
-  .btn-outline:hover {
-    background: var(--page, #f8fafc);
-  }
-</style>
+<link rel="stylesheet" href="{% static 'sales/css/sales.css' %}">
 {% endblock %}
+
 
 {% block content %}
 <div class="deal-container">
-  <div class="deal-header">
-    <p style="font-size: 0.85rem; color: var(--blue-600); font-weight: 600; margin-bottom: 4px;">Sales &amp; Trade-Ins &gt; New Deal Workflow</p>
-    <h1>Create New Deal</h1>
-    <p>Complete the steps below to finalize the sale and optional trade-in.</p>
-  </div>
-
-  <form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    
+  <header class="deal-header"><h1>{% if is_edit %}Edit Deal{% else %}Create New Deal{% endif %}</h1><p>Select a customer and vehicle, then calculate totals or save your deal.</p></header>
+  <form method="post">{% csrf_token %}{{ form.submission_key }}
+    {{ form.non_field_errors }}{{ form.submission_key.errors }}
     <div class="deal-layout">
-      
-      <div>
-        
-        
-        <div class="card">
-          <div class="card-title">
-            <div><span class="step-number">1</span>Select Customer</div>
-            <a href="#" style="font-size: 0.85rem; color: var(--blue-600); text-decoration: none;">Change</a>
+      <div class="deal-card">
+        <h2 class="deal-card-title">Deal worksheet</h2>
+        <div class="deal-form-grid">
+          {% for field in form.visible_fields %}
+          <div class="deal-form-group{% if field.name == 'trade_in_details' %} is-wide{% endif %}">
+            {{ field.label_tag }}{{ field }}{{ field.errors }}
           </div>
-          <div class="form-group">
-            <label for="{{ form.customer.id_for_label }}">Customer Profile</label>
-            {{ form.customer }}
-          </div>
+          {% endfor %}
         </div>
-
-        
-        <div class="card">
-          <div class="card-title">
-            <div><span class="step-number">2</span>Select Available Vehicle</div>
-            <a href="#" style="font-size: 0.85rem; color: var(--blue-600); text-decoration: none;">Change</a>
-          </div>
-          <div class="form-group">
-            <label for="{{ form.vehicle.id_for_label }}">Available Inventory Unit</label>
-            {{ form.vehicle }}
-          </div>
-        </div>
-
-        
-        <div class="card">
-          <div class="card-title">
-            <div><span class="step-number">3</span>Sales Invoice &amp; Pricing</div>
-          </div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="{{ form.sale_price.id_for_label }}">Sale Price</label>
-              {{ form.sale_price }}
-            </div>
-            <div class="form-group">
-              <label for="{{ form.discount.id_for_label }}">Discount</label>
-              {{ form.discount }}
-            </div>
-            <div class="form-group full-width">
-              <label for="{{ form.tax.id_for_label }}">Tax</label>
-              {{ form.tax }}
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">
-            <div><span class="step-number">4</span>Optional Trade-In</div>
-            <span style="font-size: 0.85rem; color: var(--ink-500);">Optional</span>
-          </div>
-          <div class="form-group">
-            <label for="{{ form.trade_in_details.id_for_label }}">Trade-In Vehicle Details / Valuation</label>
-            {{ form.trade_in_details }}
-          </div>
-        </div>
-
+        <p class="deal-help">Tax is calculated by the backend using the active tax rule. Enter positive discount and trade-in amounts.</p>
       </div>
-
-      
-      <div>
-        <div class="card" style="position: sticky; top: 24px;">
-          <div class="card-title" style="margin-bottom: 12px; font-size: 1rem;">Deal Summary</div>
-          <p style="font-size: 0.82rem; color: var(--ink-500); margin-bottom: 16px;">Review finalized figures before saving.</p>
-          
-          <div class="summary-section">
-            <div class="summary-row">
-              <span>Customer</span>
-              <strong>Eleanor Vance</strong>
-            </div>
-            <div class="summary-row">
-              <span>Vehicle Sale</span>
-              <strong>$54,200.00</strong>
-            </div>
-            <div class="summary-row">
-              <span>Discount</span>
-              <strong style="color: #b42318;">- $1,500.00</strong>
-            </div>
-            <div class="summary-row">
-              <span>Tax</span>
-              <strong>$4,216.00</strong>
-            </div>
-          </div>
-
-          <div class="summary-row total">
-            <span>Balance Due</span>
-            <span style="color: var(--blue-600, #2563eb);">$38,416.00</span>
-          </div>
-
-          <div style="margin-top: 24px;">
-            <button type="submit" name="action" value="finalize" class="btn btn-primary">✓ Finalize Deal</button>
-            <button type="submit" name="action" value="draft" class="btn btn-outline">💾 Save Draft</button>
-          </div>
+      <aside class="deal-card deal-summary-card" aria-label="Deal totals">
+        <h2 class="deal-card-title">Deal Summary</h2>
+        {% if quote %}
+        <p>{{ quote.customer_name }}<br>{{ quote.vehicle_name }}</p>
+        <div class="deal-summary-section">
+          <div class="deal-summary-row"><span>Selling price</span><strong>&#36;{{ quote.selling_price|floatformat:2 }}</strong></div>
+          <div class="deal-summary-row"><span>Discount</span><strong>− &#36;{{ quote.discount_amount|floatformat:2 }}</strong></div>
+          <div class="deal-summary-row"><span>Tax</span><strong>&#36;{{ quote.tax_amount|floatformat:2 }}</strong></div>
+          <div class="deal-summary-row"><span>Trade-in credit</span><strong>− &#36;{{ quote.trade_in_credit|floatformat:2 }}</strong></div>
+          <div class="deal-summary-row is-total"><span>Total</span><strong>&#36;{{ quote.total_amount|floatformat:2 }}</strong></div>
         </div>
-      </div>
-
+        <p class="deal-summary-note">Recalculate after editing. Saving always recalculates on the backend.</p>
+        {% else %}<p class="deal-summary-note">Complete the form and calculate to see the total. No record is saved when you calculate.</p>{% endif %}
+        <button class="deal-btn" type="submit" name="action" value="quote">Calculate totals</button>
+        <button class="deal-btn is-primary" type="submit" name="action" value="finalize">Finalize Deal</button>
+        <button class="deal-btn" type="submit" name="action" value="draft">Save Draft</button>
+        <a class="deal-btn" href="{% url 'inventory:deal-list' %}">Cancel</a>
+      </aside>
     </div>
   </form>
-</div>
-
-
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <nav aria-label="breadcrumb">
-            <small class="text-muted"><strong>Sales &amp; Trade-Ins &gt; New Deal Workflow</strong></small>
-        </nav>
-        <h2 class="fw-bold text-dark m-0">Create New Deal</h2>
-        <p class="text-muted small"><strong>Complete the steps below to finalize the sale and optional trade-in.</strong></p>
-    </div>
-    
-    <a href="{% url 'inventory:deal-invoice' deal_id=1 %}" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background-color: #0f172a; color: white; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        View Invoice Preview
-    </a>
 </div>
 {% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ customer.name }} | AutoSource ADMS{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'crm_finance/css/crm_finance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="business-page business-page--narrow">
+    <header class="business-heading">
+        <div>
+            <p class="business-eyebrow">Customer {{ customer.number }}</p>
+            <h1>{{ customer.name }}</h1>
+            <p>Customer details and transaction history.</p>
+        </div>
+        <div class="heading-actions">
+            <a class="business-btn business-btn--outline" href="{% url 'crm_finance:customers' %}">Back</a>
+            {% if can_edit_customers %}<a class="business-btn business-btn--primary" href="{% url 'crm_finance:customer-edit' customer.id %}">Edit Customer</a>{% endif %}
+        </div>
+    </header>
+
+    {% if customer_errors %}
+        <div class="business-notice is-error" role="alert">{% for error in customer_errors %}<p>{{ error }}</p>{% endfor %}</div>
+    {% endif %}
+
+    <section class="detail-card">
+        <header><h2>Customer Information</h2></header>
+        <dl class="detail-grid">
+            <div><dt>ID Type</dt><dd>{{ customer.id_type|default:"—" }}</dd></div>
+            <div><dt>ID Number</dt><dd>{{ customer.id_number }}</dd></div>
+            <div><dt>Phone</dt><dd>{{ customer.phone }}</dd></div>
+            <div><dt>Email</dt><dd>{{ customer.email }}</dd></div>
+            <div><dt>Address</dt><dd>{{ customer.address }}</dd></div>
+            <div><dt>Status</dt><dd>{{ customer.status_display }}</dd></div>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <header><h2>Transaction History</h2></header>
+        <div class="business-table-wrap">
+            <table class="business-table">
+                <thead><tr><th>Type</th><th>Reference</th><th>Description</th><th>Date</th><th>Amount</th></tr></thead>
+                <tbody>
+                    {% for item in history %}
+                    <tr>
+                        <td><span class="status-badge status-badge--{{ item.type }}">{{ item.type_display }}</span></td>
+                        <td class="cell-id">{{ item.reference }}</td>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.date|date:"M j, Y"|default:item.date }}</td>
+                        <td class="cell-strong">{{ item.amount }}</td>
+                    </tr>
+                    {% empty %}<tr><td class="business-empty" colspan="5">No transaction history is available.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

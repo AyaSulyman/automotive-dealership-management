@@ -1,25 +1,25 @@
 """
-Role-based permissions for Person 2's endpoints (sales, payments, reports).
+Role-based permissions for the ADMS API (all apps).
 
-INTEGRATION NOTE:
-Person 1 owns Users & Roles (see API spec §2) but that app hasn't landed
-yet. Rather than block Person 2's work on it, roles are checked against
-Django's built-in `auth.Group` model — create groups named "admin",
-"agent", "accountant" and assign users to them. `is_superuser` always
-passes, so `admin` can just be Django's own superuser flag if preferred.
-
-Once Person 1's dedicated Role/Profile model is merged, swap the lookup
-inside `_user_roles()` to read from it instead of Groups — every call site
-using `HasRole(...)` stays the same.
+Roles are read from Person 1's `accounts.UserProfile` model when one exists
+(profile.role.name), and fall back to Django's built-in `auth.Group` names
+otherwise so older seeded users keep working. `is_superuser` always passes
+every role check.
 """
 from rest_framework.permissions import BasePermission
 
 
 def _user_roles(user):
-    if not user or not user.is_authenticated:
+    if not user or not user.is_authenticated or not user.is_active:
         return set()
     if user.is_superuser:
         return {"admin", "agent", "accountant"}
+    try:
+        role = user.profile.role
+        if role is not None:
+            return {role.name}
+    except Exception:
+        pass  # UserProfile missing or accounts app not migrated yet
     return set(user.groups.values_list("name", flat=True))
 
 
