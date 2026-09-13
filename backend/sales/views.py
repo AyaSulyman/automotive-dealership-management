@@ -21,6 +21,48 @@ from .serializers import (
 )
 from .workflow import finalize_invoice, tax_rate, validate_vehicle
 
+import os
+import google.generativeai as genai
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+# Gemini KEY
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_KEY)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def polish_feedback_ai(request):
+    user_text = request.data.get('text', '')
+    
+    if not user_text:
+        return Response({'error': 'please enter the text to enhance'}, status=400)
+        
+    try:
+        #  use fast Gemini 
+        model = genai.GenerativeModel('gemini-3.6-flash')
+        
+        # (Prompt Engineering) 
+        prompt = f"""
+        You are a professional assistant for a premium car dealership. 
+        Please correct any spelling or grammar errors in the following customer feedback or vehicle description, 
+        and rewrite it to sound highly professional, polite, and engaging. 
+        Return ONLY the polished text without any introductions.
+
+        Original text: "{user_text}"
+        """
+        
+        response = model.generate_content(prompt)
+        polished_text = response.text.strip()
+        
+        return Response({
+            'original_text': user_text,
+            'polished_text': polished_text
+        }, status=200)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
 
 @extend_schema_view(
     get=extend_schema(tags=["Trade-Ins"], summary="List trade-ins"),

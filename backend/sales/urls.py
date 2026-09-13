@@ -2,7 +2,7 @@ from django.urls import path
 
 from . import views
 from . import workflow
-
+from .views import polish_feedback_ai
 urlpatterns = [
     path("sales/customer-options", workflow.CustomerOptionsView.as_view(), name="sales-customer-options"),
     path("sales/vehicle-options", workflow.VehicleOptionsView.as_view(), name="sales-vehicle-options"),
@@ -21,4 +21,9 @@ urlpatterns = [
     path("sales-invoices/<int:pk>/discounts", views.SalesInvoiceDiscountsView.as_view(), name="sales-invoice-discounts"),
     path("sales-invoices/<int:pk>/pdf", views.SalesInvoicePdfView.as_view(), name="sales-invoice-pdf"),
     path("sales-invoices/<int:pk>/cancel", views.SalesInvoiceCancelView.as_view(), name="sales-invoice-cancel"),
+
+   
+
+    path('ai/polish-feedback/', polish_feedback_ai, name='polish_feedback_ai'),
+
 ]

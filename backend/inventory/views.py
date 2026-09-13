@@ -389,3 +389,6 @@ class DocumentDownloadView(generics.RetrieveAPIView):
             document.file.open("rb"), as_attachment=True,
             filename=os.path.basename(document.original_filename or document.file.name),
         )
+
+
+

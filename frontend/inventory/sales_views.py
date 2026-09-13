@@ -143,3 +143,11 @@ def deal_invoice_pdf(request, deal_id):
     response = HttpResponse(content, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="invoice-{int(deal_id)}.pdf"'
     return response
+
+
+@require_http_methods(["GET"])
+def vehicle_feedback_page(request):
+    user, failure = access(request)
+    if failure:
+        return failure
+    return render(request, 'sales/vehicle_feedback.html', context(user))

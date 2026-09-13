@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Text Polisher - AutoSource ADMS{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{% static 'sales/css/sales.css' %}">
+<style>
+    .ai-container { max-width: 800px; margin: 40px auto; }
+    .ai-textarea { width: 100%; padding: 15px; border: 1px solid #ccc; border-radius: 8px; resize: vertical; font-size: 16px; }
+    .ai-textarea[readonly] { background-color: #f8f9fa; }
+    .ai-btn { display: block; width: 100%; padding: 12px; font-size: 16px; font-weight: bold; background-color: #0d6efd; color: white; border: none; border-radius: 8px; cursor: pointer; margin: 20px 0; transition: 0.3s; }
+    .ai-btn:hover { background-color: #0b5ed7; }
+    .ai-btn:disabled { background-color: #6c757d; cursor: not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="business-page">
+    <header class="business-heading">
+        <div>
+            <p class="business-eyebrow">AI Features</p>
+            <h1>AI Text Polisher ✨</h1>
+            <p>Improve customer feedback and vehicle descriptions to sound highly professional.</p>
+        </div>
+    </header>
+
+    <section class="business-card ai-container">
+        <!-- Input Section -->
+        <div class="form-group">
+            <label for="originalText" style="font-weight: bold; margin-bottom: 8px; display: block;">Original Text:</label>
+            <textarea id="originalText" rows="5" class="ai-textarea" placeholder="Type or paste the draft text here..."></textarea>
+        </div>
+
+        <!-- Action Button -->
+        <button id="polishBtn" onclick="polishText()" class="ai-btn">
+            ✨ Polish with AI
+        </button>
+
+        <!-- Output Section -->
+        <div class="form-group">
+            <label for="polishedText" style="font-weight: bold; margin-bottom: 8px; display: block;">Polished Result:</label>
+            <textarea id="polishedText" rows="6" class="ai-textarea" readonly placeholder="The professional AI output will appear here..."></textarea>
+        </div>
+    </section>
+</div>
+
+<script>
+async function polishText() {
+    const originalText = document.getElementById('originalText').value;
+    const polishedTextArea = document.getElementById('polishedText');
+    const btn = document.getElementById('polishBtn');
+
+    if (!originalText.trim()) {
+        alert("Please enter some text first.");
+        return;
+    }
+
+    btn.innerText = "⏳ Polishing... Please wait";
+    btn.disabled = true;
+    polishedTextArea.value = "AI is thinking...";
+
+    try {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/ai/polish-feedback/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: originalText })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            polishedTextArea.value = data.polished_text;
+        } else {
+            polishedTextArea.value = "Error: " + (data.error || "Server error occurred.");
+        }
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        polishedTextArea.value = "Connection error: " + error.message;
+    } finally {
+        btn.innerText = "✨ Polish with AI";
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

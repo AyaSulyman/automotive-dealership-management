@@ -55,4 +55,5 @@ urlpatterns = [
     path("inventory/deals/<str:deal_id>/edit/", sales_views.deal_edit_page, name="deal-edit"),
     path('deals/<int:deal_id>/invoice/', sales_views.deal_invoice_view, name='deal-invoice-legacy'),
     path('inventory/deals/<int:deal_id>/invoice/', sales_views.deal_invoice_view, name='deal-invoice'),
+    path('feedback-page/', sales_views.vehicle_feedback_page, name='vehicle-feedback'),
 ]

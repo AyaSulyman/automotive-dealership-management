@@ -72,6 +72,13 @@ The project is structured as two Django applications:
 * Vehicle financial summaries
 * Audit logs
 
+### AI-Powered Features
+
+* AI Text Polisher for rewriting customer feedback and vehicle descriptions professionally
+* Integration with Google Generative AI (Gemini 1.5 Flash)
+* Dedicated UI assistant accessible via the dealership sidebar
+* Isolated REST endpoint for prompt-engineered text refinement
+
 ### API Documentation
 
 The backend uses **drf-spectacular** to provide OpenAPI documentation.
@@ -111,94 +118,104 @@ automotive-dealership-management/
 │   └── requirements.txt
 │
 └── README.md
-```
 
----
+Technology Stack
+Backend
+Python
 
-## Technology Stack
+Django 6.1
 
-### Backend
+Django REST Framework
 
-* Python
-* Django 6.1
-* Django REST Framework
-* Simple JWT
-* PostgreSQL
-* Psycopg
-* Django CORS Headers
-* Django Filter
-* drf-spectacular
-* ReportLab
-* python-dotenv
+Simple JWT
 
-### Frontend
+PostgreSQL
 
-* Python
-* Django 6.1
-* Django Templates
-* HTML/CSS
-* JavaScript
-* Requests
-* python-dotenv
+Psycopg
 
-### Database
+Django CORS Headers
 
-The backend is designed to use **PostgreSQL**.
+Django Filter
+
+drf-spectacular
+
+ReportLab
+
+google-generativeai
+
+python-dotenv
+
+Frontend
+Python
+
+Django 6.1
+
+Django Templates
+
+HTML/CSS
+
+JavaScript
+
+Requests
+
+python-dotenv
+
+Database
+The backend is designed to use PostgreSQL.
 
 The frontend does not own the dealership business data. It communicates with the backend through REST APIs.
 
----
-
-# Installation
-
-## Prerequisites
-
+Installation
+Prerequisites
 Make sure the following are installed:
 
-* Python 3.13+
-* Git
-* PostgreSQL or a configured PostgreSQL-compatible database
-* pip
-* Virtual environment support
+Python 3.13+
 
----
+Git
 
-# Backend Setup
+PostgreSQL or a configured PostgreSQL-compatible database
 
+pip
+
+Virtual environment support
+
+Backend Setup
 Open a terminal and navigate to the backend:
 
-```powershell
-cd backend
-```
+PowerShell
 
+
+cd backend
 Create a virtual environment if one does not already exist:
 
-```powershell
-python -m venv venv
-```
+PowerShell
 
+
+python -m venv venv
 Activate it on Windows:
 
-```powershell
-.\venv\Scripts\Activate.ps1
-```
+PowerShell
 
+
+.\venv\Scripts\Activate.ps1
 Install dependencies:
 
-```powershell
+PowerShell
+
+
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-```
-
 Configure the backend environment variables in:
 
-```text
-backend/.env
-```
+Plaintext
 
+
+backend/.env
 Example:
 
-```env
+Code snippet
+
+
 DB_NAME=postgres
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
@@ -206,166 +223,153 @@ DB_HOST=your_database_host
 DB_PORT=5432
 
 SECRET_KEY=your_secret_key
-```
-
+GEMINI_API_KEY=your_gemini_api_key
 Run migrations:
 
-```powershell
-python manage.py migrate
-```
+PowerShell
 
+
+python manage.py migrate
 Check the project:
 
-```powershell
-python manage.py check
-```
+PowerShell
 
+
+python manage.py check
 Start the backend:
 
-```powershell
-python manage.py runserver 8001
-```
+PowerShell
 
+
+python manage.py runserver 8001
 The backend will be available at:
 
-```text
-http://127.0.0.1:8001/
-```
+Plaintext
 
+
+[http://127.0.0.1:8001/](http://127.0.0.1:8001/)
 API base URL:
 
-```text
-http://127.0.0.1:8001/api/v1/
-```
+Plaintext
 
----
 
-# Frontend Setup
-
+[http://127.0.0.1:8001/api/v1/](http://127.0.0.1:8001/api/v1/)
+Frontend Setup
 Open a second terminal:
 
-```powershell
-cd frontend
-```
+PowerShell
 
+
+cd frontend
 Install dependencies:
 
-```powershell
-pip install -r requirements.txt
-```
+PowerShell
 
+
+pip install -r requirements.txt
 Configure the frontend environment in:
 
-```text
-frontend/.env
-```
+Plaintext
 
+
+frontend/.env
 Example:
 
-```env
-ADMS_API_BASE_URL=http://127.0.0.1:8001/api/v1
+Code snippet
+
+
+ADMS_API_BASE_URL=[http://127.0.0.1:8001/api/v1](http://127.0.0.1:8001/api/v1)
 ADMS_API_TIMEOUT=10
 
 FRONTEND_SECRET_KEY=your_frontend_secret_key
 FRONTEND_DEBUG=true
 FRONTEND_ALLOWED_HOSTS=127.0.0.1,localhost
-```
-
 Run frontend migrations:
 
-```powershell
-python manage.py migrate
-```
+PowerShell
 
+
+python manage.py migrate
 Check the project:
 
-```powershell
-python manage.py check
-```
+PowerShell
 
+
+python manage.py check
 Start the frontend:
 
-```powershell
-python manage.py runserver 8000
-```
+PowerShell
 
+
+python manage.py runserver 8000
 The employee portal will be available at:
 
-```text
-http://127.0.0.1:8000/
-```
+Plaintext
 
----
 
-# Running the Complete System
-
+[http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+Running the Complete System
 The backend and frontend should run simultaneously.
 
-### Terminal 1 — Backend
+Terminal 1 — Backend
+PowerShell
 
-```powershell
+
 cd backend
 .\venv\Scripts\Activate.ps1
 python manage.py runserver 8001
-```
+Terminal 2 — Frontend
+PowerShell
 
-### Terminal 2 — Frontend
 
-```powershell
 cd frontend
 python manage.py runserver 8000
-```
-
 The architecture is:
 
-```text
-                 ┌─────────────────────┐
-                 │    ADMS Frontend    │
-                 │     Django UI       │
-                 │     Port 8000       │
-                 └──────────┬──────────┘
-                            │
-                            │ REST API
-                            ▼
-                 ┌─────────────────────┐
-                 │    ADMS Backend     │
-                 │ Django REST API     │
-                 │     Port 8001       │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │     PostgreSQL      │
-                 │      Database       │
-                 └─────────────────────┘
-```
+Plaintext
 
----
 
-# API Modules
-
+                  ┌─────────────────────┐
+                  │    ADMS Frontend    │
+                  │     Django UI       │
+                  │     Port 8000       │
+                  └──────────┬──────────┘
+                             │
+                             │ REST API
+                             ▼
+                  ┌─────────────────────┐
+                  │    ADMS Backend     │
+                  │ Django REST API     │
+                  │     Port 8001       │
+                  └──────────┬──────────┘
+                             │
+                             ▼
+                  ┌─────────────────────┐
+                  │     PostgreSQL      │
+                  │      Database       │
+                  └─────────────────────┘
+API Modules
 The backend API is organized into the following modules.
 
-## Authentication
+Authentication
+Plaintext
 
-```text
+
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/auth/me
-```
+Users & Roles
+Plaintext
 
-## Users & Roles
 
-```text
 GET/POST /api/v1/users
 GET      /api/v1/users/{id}
 GET      /api/v1/roles
-```
+Inventory
+Plaintext
 
-## Inventory
 
-```text
 GET/POST /api/v1/vehicles
 GET      /api/v1/vehicles/{id}
 
@@ -378,224 +382,227 @@ GET      /api/v1/purchase-orders/{id}
 GET/POST /api/v1/documents
 DELETE   /api/v1/documents/{id}
 GET      /api/v1/documents/{id}/download
-```
-
 Vehicle-related functionality also includes:
 
-```text
+Plaintext
+
+
 /api/v1/vehicles/{id}/media
 /api/v1/vehicles/{id}/valuation
-```
+Customers
+Plaintext
 
-## Customers
 
-```text
 GET/POST /api/v1/customers
 GET      /api/v1/customers/{id}
 GET      /api/v1/customers/{id}/history
 GET      /api/v1/customers/{id}/balance
 GET      /api/v1/customers/{id}/statement
-```
+Sales
+Plaintext
 
-## Sales
 
-```text
 /api/v1/sales/customer-options
 /api/v1/sales/vehicle-options
 /api/v1/sales/deal-worksheet
 /api/v1/trade-ins
 /api/v1/tax-rules
 /api/v1/sales-invoices
-```
-
 Sales invoices support draft saving, finalization, discounts, PDF generation, and cancellation.
 
-## Payments & Financing
+Artificial Intelligence (AI)
+Plaintext
 
-```text
+
+POST /api/v1/ai/polish-feedback/
+Provides automated grammar correction, stylistic enhancement, and tone polishing for customer communication drafts and inventory descriptions using Google Gemini.
+
+Payments & Financing
+Plaintext
+
+
 /api/v1/payments
 /api/v1/payment-schedules
 /api/v1/financing-accounts
 /api/v1/statements
-```
-
 The payment module also supports payment receipts, payment exports, statement generation, and payment schedule generation.
 
-## Reports
+Reports
+Plaintext
 
-```text
+
 /api/v1/dashboard/overview
 /api/v1/dashboard/recent-invoices
 /api/v1/dashboard/recent-payments
 /api/v1/reports/finance/overview
 /api/v1/reports/vehicle-financial-summary
 /api/v1/audit-log
-```
-
----
-
-# API Documentation
-
+API Documentation
 After starting the backend, open:
 
-### Swagger
+Swagger
+Plaintext
 
-```text
-http://127.0.0.1:8001/api/v1/docs
-```
 
-### OpenAPI Schema
+[http://127.0.0.1:8001/api/v1/docs](http://127.0.0.1:8001/api/v1/docs)
+OpenAPI Schema
+Plaintext
 
-```text
-http://127.0.0.1:8001/api/v1/schema
-```
 
-### ReDoc
+[http://127.0.0.1:8001/api/v1/schema](http://127.0.0.1:8001/api/v1/schema)
+ReDoc
+Plaintext
 
-```text
-http://127.0.0.1:8001/api/v1/redoc
-```
 
+[http://127.0.0.1:8001/api/v1/redoc](http://127.0.0.1:8001/api/v1/redoc)
 Swagger provides an interactive interface for testing the available REST API endpoints.
 
----
-
-# Environment Variables
-
+Environment Variables
 Do not commit real passwords, API keys, secret keys, or database credentials to Git.
 
-Use `.env` files locally and keep them excluded through `.gitignore`.
+Use .env files locally and keep them excluded through .gitignore.
 
 Example frontend configuration:
 
-```env
-ADMS_API_BASE_URL=http://127.0.0.1:8001/api/v1
+Code snippet
+
+
+ADMS_API_BASE_URL=[http://127.0.0.1:8001/api/v1](http://127.0.0.1:8001/api/v1)
 ADMS_API_TIMEOUT=10
 FRONTEND_SECRET_KEY=your_secret_key
 FRONTEND_DEBUG=true
 FRONTEND_ALLOWED_HOSTS=127.0.0.1,localhost
-```
-
 Example backend configuration:
 
-```env
+Code snippet
+
+
 DB_NAME=postgres
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
 DB_HOST=your_database_host
 DB_PORT=5432
 SECRET_KEY=your_secret_key
-```
+GEMINI_API_KEY=your_gemini_api_key
+Development Workflow
+Start the PostgreSQL database.
 
----
+Start the backend on port 8001.
 
-# Development Workflow
+Start the frontend on port 8000.
 
-1. Start the PostgreSQL database.
-2. Start the backend on port `8001`.
-3. Start the frontend on port `8000`.
-4. Open the frontend employee portal.
-5. Use Swagger to test backend APIs independently when needed.
-6. Check Django logs in the corresponding terminal when debugging API or UI issues.
+Open the frontend employee portal.
 
----
+Use Swagger to test backend APIs independently when needed.
 
-# Troubleshooting
+Check Django logs in the corresponding terminal when debugging API or UI issues.
 
-### Backend API returns 404
+Troubleshooting
+Backend API returns 404
+Make sure the backend is running from the backend directory:
 
-Make sure the backend is running from the `backend` directory:
+PowerShell
 
-```powershell
+
 cd backend
 python manage.py runserver 8001
-```
+Do not run the frontend Django application on port 8001.
 
-Do not run the frontend Django application on port `8001`.
-
-### Swagger returns 404
-
+Swagger returns 404
 Verify that the backend is running and that the URL is:
 
-```text
-http://127.0.0.1:8001/api/v1/docs
-```
+Plaintext
 
-### Frontend cannot connect to backend
 
+[http://127.0.0.1:8001/api/v1/docs](http://127.0.0.1:8001/api/v1/docs)
+Frontend cannot connect to backend
 Check:
 
-```env
-ADMS_API_BASE_URL=http://127.0.0.1:8001/api/v1
-```
+Code snippet
 
+
+ADMS_API_BASE_URL=[http://127.0.0.1:8001/api/v1](http://127.0.0.1:8001/api/v1)
 Then restart the frontend server.
 
-### Missing Python package
-
+Missing Python package
 Install project dependencies:
 
-```powershell
+PowerShell
+
+
 pip install -r requirements.txt
-```
-
-### Database migration errors
-
+Database migration errors
 Run:
 
-```powershell
+PowerShell
+
+
 python manage.py check
 python manage.py showmigrations
 python manage.py migrate
-```
-
----
-
-# Security
-
-For development, environment variables may be stored in local `.env` files.
+Security
+For development, environment variables may be stored in local .env files.
 
 For production:
 
-* Use strong secret keys.
-* Never commit `.env` files containing credentials.
-* Use HTTPS.
-* Configure allowed hosts correctly.
-* Restrict database access.
-* Use production-grade Django deployment settings.
-* Disable `DEBUG`.
-* Rotate credentials if they are accidentally exposed.
+Use strong secret keys.
 
----
+Never commit .env files containing credentials.
 
-# Project Status
+Use HTTPS.
 
+Configure allowed hosts correctly.
+
+Restrict database access.
+
+Use production-grade Django deployment settings.
+
+Disable DEBUG.
+
+Rotate credentials if they are accidentally exposed.
+
+Project Status
 The system contains integrated modules for:
 
-* Authentication
-* User and role management
-* Inventory
-* Vendors
-* Purchase orders
-* Vehicles
-* Customers
-* Sales
-* Trade-ins
-* Sales invoices
-* Payments
-* Financing
-* Statements
-* Dashboard reporting
-* Financial reporting
-* Audit logging
-* API documentation
+Authentication
+
+User and role management
+
+Inventory
+
+Vendors
+
+Purchase orders
+
+Vehicles
+
+Customers
+
+Sales
+
+Trade-ins
+
+Sales invoices
+
+Payments
+
+Financing
+
+Statements
+
+Dashboard reporting
+
+Financial reporting
+
+Audit logging
+
+AI-Powered Text Enhancement
+
+API documentation
 
 The frontend and backend are designed to operate as separate Django applications communicating through REST APIs.
 
----
-
-# License
-
+License
 This project is intended for dealership management and internal/project use.
 
 Add the appropriate license here if the project will be distributed publicly.
